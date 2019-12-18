@@ -1,18 +1,22 @@
 from flask import Flask, render_template, request, redirect, url_for, make_response, send_file, jsonify, Response
+import requests
 import os
 from os.path import isfile, join
 from uuid import uuid4
 import jwt
-import requests
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
 import datetime
 from dotenv import load_dotenv
-load_dotenv(verbose=True)
 
 app = Flask(__name__)
-UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
-DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
+
+# CONFIG
+load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 app.config['CURRENT_USER'] = ''
+#UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
+#DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 
 @app.route('/', methods=['GET'])
 def index():
@@ -36,9 +40,12 @@ def render_login():
 def login():
 	user = request.form.get('username')
 	password = request.form.get('password')
-	token = {"username": user, "password": password}
-	headers= {"Authorization": user + ":" + password}
-	response = requests.post("http://api:5000/login", json={"username": user, "password": password}, headers=headers)	
+	byte_password = str.encode(password)
+	hash = SHA256.new(byte_password)
+	token = {"username": user, "password": hash.hexdigest()}
+	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
+	headers= {"Authorization": token}
+	response = requests.post("http://api:5000/login", headers=headers)	
 	if(response.status_code == 200):
 		app.config['CURRENT_USER'] = user
 		resp = make_response(redirect(url_for('render_profile')))

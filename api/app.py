@@ -11,16 +11,19 @@ from dotenv import load_dotenv
 
 
 app = Flask(__name__)
+
 # CONFIG
 load_dotenv(verbose=True)
-app.config['UPLOAD_FOLDER'] = os.getenv("UPLOAD_FOLDER")
-UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
-DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
+#UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
+#DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 JWT_SECRET = os.getenv("JWT_SECRET")
+
+app.config['UPLOAD_FOLDER'] = os.getenv("UPLOAD_FOLDER")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///db.sqlite3"
 db = SQLAlchemy(app)
 
+# DATABASE MODEL
 class Publication(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	title = db.Column(db.String(256), unique=True, nullable=False)
@@ -85,19 +88,20 @@ class File(db.Model):
 class User(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	user = db.Column(db.String(32), unique=True, nullable=False)
-	password = db.Column(db.String(64), unique=False, nullable=False)
+	password = db.Column(db.String(256), unique=False, nullable=False) # SHA256
 
 db.create_all()
 
+# FILL DATABASE
 try:
-	user = User(user="admin", password="admin")
+	user = User(user="admin", password="8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918")
 	db.session.add(user)
 	db.session.commit()
 except IntegrityError:
 	db.session.rollback()
 
 try:
-	user = User(user="magierak", password="magierak")
+	user = User(user="magierak", password="430afa184d6e53861cecbac329560e11800b0bbbe48be6aa3a3e206b78ace691")
 	db.session.add(user)
 	db.session.commit()
 except IntegrityError:
@@ -138,16 +142,18 @@ try:
 except IntegrityError:
 	db.session.rollback()
 
+#######
 
 @app.route('/login', methods=['POST'])
 def login():
-	data = request.get_json()
-	headers = request.headers.get('Authorization')
-	print(headers, flush=True)
-	if(("username" not in data) or ("password" not in data)):
-		return "send username and password", 401
-	user = data["username"]
-	password = data["password"]
+	token = request.headers.get('Authorization')
+	token_decode = jwt.decode(token, JWT_SECRET, algorithm='HS256')
+	if(('username' not in token_decode) and ('password' not in token_decode)):
+		msg = {'message': 'Missing valid credentials'}
+		return jsonify(msg), 401
+
+	user = token_decode['username']
+	password = token_decode['password']
 	user_db = User.query.filter_by(user=user).first()
 	if(user_db == None):
 		return "user does not exist", 401
@@ -377,8 +383,6 @@ def delete_all_pub_files(pid):
 		tmp = f.get_all()
 		file_ids.append(tmp['id'])
 		filenames.append(tmp['filename'])
-
-	print(file_ids, flush=True)
 	for fid, filename in zip(file_ids, filenames):
 		filequery = File.query.filter_by(id=int(fid), pub_id=int(pid))
 		if(filequery.count() != 1):
@@ -391,7 +395,8 @@ def delete_all_pub_files(pid):
 			db.session.commit()
 			msg = {"message": "Successfully deleted"}
 			os.remove(filepath)
+			return jsonify(msg), 200
 		except:
 			db.session.rollback()
 			msg = {"message": "Failed to delete"}
-	return "TMP"
+			return jsonify(msg), 401
