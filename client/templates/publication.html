@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+
+	<head>
+		<title>Publication</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <meta charset="UTF-8">
+	</head>
+	
+	<body>
+		<div class="register">
+			{% if publication %}
+			<h1>Publication id: {{ publication['id'] }}</h1>
+			<a href="{{ url_for('render_publication_id_edit', id=publication['id']) }}"><img  class="img-small" src="{{ url_for('static', filename='edit.jpg') }}" />
+			</a>
+			<a href="{{ url_for('publications_id_delete', id=publication['id']) }}"><img class="img-small" src="{{ url_for('static', filename='trash.jpg') }}"/>
+			</a>
+			<div>
+				<label>Title: </label><label>{{ publication['title'] }}</label>
+			</div>
+			<div>
+				<label>Author: </label><label>{{ publication['author'] }}</label>
+			</div>
+			<div>
+				<label>Publisher: </label><label>{{ publication['publisher'] }}</label>
+			</div>
+			<div>
+				<label>Date: </label><label>{{ publication['pub_date'] }}</label>
+			</div>
+				{% if files %}
+				<div>
+					<label>Files: </label>
+					<ul>
+					{% for file in files %}
+						<li>
+							<a href="{{ url_for('file_download', pid=publication['id'], fid=file['id']) }}" >{{ file['filename'] }}</a>
+							<a href="{{ url_for('file_delete', pid=publication['id'], fid=file['id']) }}"><img class="img-small" src="{{ url_for('static', filename='trash.jpg') }}"/></a>
+						</li>
+					{% endfor %}
+					</ul>
+				</div>
+				{% endif %}
+			<form method="post" enctype="multipart/form-data">
+				<input type="file" name="file" accept="application/pdf" />
+				<input type="submit" name="btn" value="Add file" />
+			</form>
+
+			{% else %}
+			<h1>"Can't open publication"</h1>
+			{% endif %}
+			<form method="post">
+				<input type="submit" name="btn" value="Back" />
+			</form>
+		</div>
+	</body>
+</html>
