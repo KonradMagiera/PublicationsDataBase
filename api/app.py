@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
+from Crypto.Hash import SHA256
 import os
 from os.path import isfile, join
 from uuid import uuid4
@@ -146,21 +147,32 @@ except IntegrityError:
 
 @app.route('/login', methods=['POST'])
 def login():
-	token = request.headers.get('Authorization')
-	token_decode = jwt.decode(token, JWT_SECRET, algorithm='HS256')
+	token_decode = request.headers.get('Authorization')
+	try:	
+		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
+	except jwt.ExpiredSignatureError:
+		msg = {"message": "token expired"}
+		return jsonify(msg), 401
+
 	if(('username' not in token_decode) and ('password' not in token_decode)):
 		msg = {'message': 'Missing valid credentials'}
 		return jsonify(msg), 401
 
 	user = token_decode['username']
 	password = token_decode['password']
+	password = str.encode(password)
+	password = SHA256.new(password)
+	password = password.hexdigest()
 	user_db = User.query.filter_by(user=user).first()
 	if(user_db == None):
-		return "user does not exist", 401
+		msg = {"message": "incorrect username or password"}
+		return jsonify(msg), 401
 	elif(user_db.password == password):
-		return "zalogowano", 200
+		msg = {"message": "logged in"}
+		return jsonify(msg), 200
 	else:
-		return "bad credentials", 401
+		msg = {"message": "incorrect username or password"}
+		return jsonify(msg), 401
 
 @app.route('/logout', methods=['POST'])
 def logout():

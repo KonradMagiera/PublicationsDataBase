@@ -1,13 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, make_response, send_file, jsonify, Response
 import requests
 import os
-from os.path import isfile, join
 from uuid import uuid4
 import jwt
-from Crypto.Cipher import AES
-from Crypto.Hash import SHA256
-import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
+
 
 app = Flask(__name__)
 
@@ -15,13 +13,18 @@ app = Flask(__name__)
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 app.config['CURRENT_USER'] = ''
+LOGIN_EXPIRE = int(os.getenv("LOGIN_EXPIRE"))
 #UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
 #DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
+
+
+#######
 
 @app.route('/', methods=['GET'])
 def index():
 	session_id = request.cookies.get('session_id')
 	user_tmp = app.config['CURRENT_USER']
+	response = ''
 	if(user_tmp == ''):
 		response = make_response(redirect(url_for('login')))
 		response.set_cookie('session_id', '', max_age=0)
@@ -40,9 +43,7 @@ def render_login():
 def login():
 	user = request.form.get('username')
 	password = request.form.get('password')
-	byte_password = str.encode(password)
-	hash = SHA256.new(byte_password)
-	token = {"username": user, "password": hash.hexdigest()}
+	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=LOGIN_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
 	response = requests.post("http://api:5000/login", headers=headers)	
@@ -52,7 +53,9 @@ def login():
 		session_id = str(uuid4())
 		resp.set_cookie('session_id', session_id, httponly=True)
 		return resp
-	return redirect(url_for('login', error=response.text))
+	message = response.json()
+	message = message['message']
+	return redirect(url_for('login', error=message))
 
 @app.route('/profile', methods=['GET'])
 def render_profile():
@@ -62,7 +65,6 @@ def render_profile():
 	else:
 		app.config['CURRENT_USER'] = ''
 		return redirect(url_for('login', error="Session expired"))
-
 
 @app.route('/profile', methods=['POST'])
 def profile():
