@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import datetime, timedelta
 from Crypto.Hash import SHA256
 import os
 from os.path import isfile, join
@@ -18,7 +18,9 @@ load_dotenv(verbose=True)
 #UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
 #DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 JWT_SECRET = os.getenv("JWT_SECRET")
+LOGIN_EXPIRE = int(os.getenv('LOGIN_EXPIRE'))
 
+app.config['SESSION_ID'] = ''
 app.config['UPLOAD_FOLDER'] = os.getenv("UPLOAD_FOLDER")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///db.sqlite3"
@@ -168,8 +170,12 @@ def login():
 		msg = {"message": "incorrect username or password"}
 		return jsonify(msg), 401
 	elif(user_db.password == password):
-		msg = {"message": "logged in"}
-		return jsonify(msg), 200
+		app.config['SESSION_ID'] = str(uuid4())
+		resp = make_response('logged in', 200)
+		token = {"session_id": app.config['SESSION_ID'], "exp": datetime.now() + timedelta(seconds=LOGIN_EXPIRE)}
+		token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
+		resp.headers['Authorization'] = token
+		return resp
 	else:
 		msg = {"message": "incorrect username or password"}
 		return jsonify(msg), 401
@@ -178,6 +184,7 @@ def login():
 def logout():
 	data = request.get_json()
 	if("username" in data):
+		app.config['SESSION_ID'] = ''
 		return "logged out", 200
 	elif("username" not in data):
 		return "logged out with troubles", 200
@@ -240,7 +247,7 @@ def publications_add():
 		return jsonify(msg), 401
 	else:
 		msg = {"message": "publication added", "id": id}
-		return jsonify(msg), 200
+		return jsonify(msg), 201
 
 @app.route('/publications/<pid>', methods=['GET'])
 def publicationspid(pid):
@@ -329,11 +336,11 @@ def files_add(pid):
 		pub = Publication.query.filter_by(id=pid).first()
 		if(pub == None):
 			msg = {"message": "publication not found"}
-			return jsonify(msg), 401
+			return jsonify(msg), 404
 
 		filequery = File.query.filter_by(pub_id=int(pid), filename=files.filename).first()
 		if(filequery != None):
-			msg = {"message": "file with specific name already added to publication"}
+			msg = {"message": "file with specific name has been already added to publication"}
 			return jsonify(msg), 401
 		try:
 			filequery = File(filename=files.filename, pub_id=int(pid))
@@ -341,14 +348,14 @@ def files_add(pid):
 			db.session.commit()
 			files.save(filepath)
 			msg = {"message": "file added"}
-			return jsonify(msg), 200
+			return jsonify(msg), 201
 		except IntegrityError:
 			db.session.rollback()
-			msg = {"message": "error while adding file"}
-			return jsonify(msg), 401
+			msg = {"message": "error while saving file"}
+			return jsonify(msg), 409
 	else:
-		msg = {"message": "error while saving file"}
-		return jsonify(msg), 401
+		msg = {"message": "file is not a pdf"}
+		return jsonify(msg), 415
 
 @app.route('/publications/<pid>/files/<fid>', methods=['GET'])
 def filesfid(pid, fid):

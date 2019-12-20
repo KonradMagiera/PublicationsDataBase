@@ -48,9 +48,16 @@ def login():
 	headers= {"Authorization": token}
 	response = requests.post("http://api:5000/login", headers=headers)	
 	if(response.status_code == 200):
+		token_decode = response.headers.get('Authorization')
+		try:	
+			token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
+		except jwt.ExpiredSignatureError:
+			msg = "token expired"
+			return redirect(url_for('render_login', error= msg)), 401
+
 		app.config['CURRENT_USER'] = user
 		resp = make_response(redirect(url_for('render_profile')))
-		session_id = str(uuid4())
+		session_id = token_decode['session_id']
 		resp.set_cookie('session_id', session_id, httponly=True)
 		return resp
 	message = response.json()
@@ -108,7 +115,6 @@ def publications_back():
 def render_publications_add():
 	return render_template('add_publication.html')
 
-
 @app.route('/publications/add', methods=['POST'])
 def publications_add():
 	if(request.form['btn'] == 'Save'):
@@ -129,7 +135,6 @@ def publications_add():
 
 	return redirect(url_for('render_publications'))
 
-
 @app.route('/publications/<id>', methods=['GET'])
 def render_publications_id(id):
 	response = requests.get('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER']})
@@ -145,7 +150,6 @@ def render_publications_id(id):
 		files = None
 	return render_template('publication.html', publication=data, files=files)
 
-
 @app.route('/publications/<id>', methods=['POST'])
 def publications_id_post(id):
 	if(request.form['btn'] == 'Back'):
@@ -159,7 +163,6 @@ def publications_id_post(id):
 				headers = {'Content-type': 'multipart/form-data'}
 				response = requests.post('http://api:5000/publications/' + str(id) + "/files", files=files)
 		return redirect(url_for('render_publications_id', id=id))
-
 
 @app.route('/publications/<id>/edit', methods=['GET'])
 def render_publication_id_edit(id):
@@ -191,7 +194,6 @@ def render_publication_id_edit(id):
 	data['pub_date'] = str(year) + '-' + str(month) + '-' + day
 	return render_template('edit_publication.html', publication=data)
 
-
 @app.route('/publications/<id>/edit', methods=['POST'])
 def send_publications_id_edit(id):
 	if(request.form['btn'] == 'Save'):
@@ -202,12 +204,10 @@ def send_publications_id_edit(id):
 		response = requests.put('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER'],"id": id, "title": title, "author": author, "publisher": publisher, "date":date})
 	return redirect(url_for('render_publications_id', id=id))
 
-
 @app.route('/publications/<id>/delete', methods=['GET'])
 def publications_id_delete(id):
 	response = requests.delete('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER']})
 	return redirect(url_for('render_publications'))
-
 
 @app.route('/publications/<pid>/files/<fid>', methods=['GET'])
 def file_download(pid, fid):
