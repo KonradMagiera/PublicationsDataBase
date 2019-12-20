@@ -18,7 +18,7 @@ load_dotenv(verbose=True)
 #UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
 #DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 JWT_SECRET = os.getenv("JWT_SECRET")
-LOGIN_EXPIRE = int(os.getenv('LOGIN_EXPIRE'))
+CREDENTIALS_EXPIRE = int(os.getenv('CREDENTIALS_EXPIRE'))
 
 app.config['SESSION_ID'] = ''
 app.config['UPLOAD_FOLDER'] = os.getenv("UPLOAD_FOLDER")
@@ -172,7 +172,7 @@ def login():
 	elif(user_db.password == password):
 		app.config['SESSION_ID'] = str(uuid4())
 		resp = make_response('logged in', 200)
-		token = {"session_id": app.config['SESSION_ID'], "exp": datetime.now() + timedelta(seconds=LOGIN_EXPIRE)}
+		token = {"session_id": app.config['SESSION_ID'], "exp": datetime.now() + timedelta(seconds=CREDENTIALS_EXPIRE)}
 		token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 		resp.headers['Authorization'] = token
 		return resp
@@ -182,14 +182,20 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
-	data = request.get_json()
-	if("username" in data):
+	token_decode = request.headers.get('Authorization')
+	try:	
+		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
+	except jwt.ExpiredSignatureError:
+		msg = {"message": "token expired"}
+		return jsonify(msg), 401
+
+	if(("username" in token_decode) and ("session_id" in token_decode) and (token_decode['session_id'] == app.config['SESSION_ID'])):
 		app.config['SESSION_ID'] = ''
-		return "logged out", 200
-	elif("username" not in data):
-		return "logged out with troubles", 200
+		msg = {"message": "logged out"}
+		return jsonify(msg), 200
 	else:
-		return "unexpected error", 500
+		msg = {"message": "unexpected error"}
+		return jsonify(msg), 500
 
 @app.route('/', methods=['GET'])
 @app.route('/publications', methods=['GET'])

@@ -13,7 +13,7 @@ app = Flask(__name__)
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 app.config['CURRENT_USER'] = ''
-LOGIN_EXPIRE = int(os.getenv("LOGIN_EXPIRE"))
+CREDENTIALS_EXPIRE = int(os.getenv("CREDENTIALS_EXPIRE"))
 #UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
 #DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 
@@ -22,13 +22,14 @@ LOGIN_EXPIRE = int(os.getenv("LOGIN_EXPIRE"))
 
 @app.route('/', methods=['GET'])
 def index():
-	session_id = request.cookies.get('session_id')
+	
 	user_tmp = app.config['CURRENT_USER']
 	response = ''
 	if(user_tmp == ''):
 		response = make_response(redirect(url_for('login')))
 		response.set_cookie('session_id', '', max_age=0)
 	else:
+		session_id = request.cookies.get('session_id')
 		response = redirect(url_for('profile', username=app.config['CURRENT_USER']) if session_id else url_for('render_login'))
 	return response
 
@@ -43,7 +44,7 @@ def render_login():
 def login():
 	user = request.form.get('username')
 	password = request.form.get('password')
-	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=LOGIN_EXPIRE)}
+	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
 	response = requests.post("http://api:5000/login", headers=headers)	
@@ -76,7 +77,11 @@ def render_profile():
 @app.route('/profile', methods=['POST'])
 def profile():
 	if request.form['btn'] == 'Logout':
-		response = requests.post("http://api:5000/logout", json={"username": app.config['CURRENT_USER']})
+		session_id = request.cookies.get('session_id')
+		token = {"username": app.config['CURRENT_USER'], "session_id": session_id, "exp": datetime.now() + timedelta(seconds=CREDENTIALS_EXPIRE)}
+		token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
+		headers= {"Authorization": token}
+		response = requests.post("http://api:5000/logout", headers=headers)
 		if(response.status_code == 200):
 			resp = make_response(redirect(url_for('login')))
 			resp.set_cookie('session_id', '', max_age=0)
