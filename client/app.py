@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, make_response, send_file, jsonify, Response
 import requests
 import os
-from uuid import uuid4
 import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -13,10 +12,8 @@ app = Flask(__name__)
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 app.config['CURRENT_USER'] = ''
-CREDENTIALS_EXPIRE = int(os.getenv("CREDENTIALS_EXPIRE"))
+REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
-#UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
-#DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 
 
 #######
@@ -45,7 +42,7 @@ def render_login():
 def login():
 	user = request.form.get('username')
 	password = request.form.get('password')
-	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=CREDENTIALS_EXPIRE)}
+	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
 	response = requests.post("http://api:5000/login", headers=headers)	
@@ -68,7 +65,7 @@ def login():
 
 @app.route('/profile', methods=['GET'])
 def render_profile():
-	if('session_id' in request.cookies):
+	if(('session_id' in request.cookies) and (app.config['CURRENT_USER'] != '')):
 		user = app.config['CURRENT_USER']
 		return render_template("profile.html", username=user)
 	else:
@@ -78,7 +75,7 @@ def render_profile():
 @app.route('/profile', methods=['POST'])
 def profile():
 	if request.form['btn'] == 'Logout':
-		headers= {"Authorization": create_jwt(CREDENTIALS_EXPIRE)}
+		headers= {"Authorization": create_jwt(REQUEST_CREDENTIALS_EXPIRE)}
 		response = requests.post("http://api:5000/logout", headers=headers)
 		if(response.status_code == 200):
 			resp = make_response(redirect(url_for('login')))
@@ -99,7 +96,7 @@ def render_publications():
 	response = requests.get("http://api:5000/publications", headers=headers)
 	pubs = list()
 	data = response.json()
-	if(("publication" not in data) or response.status_code != 200):
+	if(("publication" not in data) or (response.status_code != 200)):
 		pubs = None
 	else:	
 		data = data['publication']
@@ -143,13 +140,15 @@ def publications_add():
 
 @app.route('/publications/<id>', methods=['GET'])
 def render_publications_id(id):
-	response = requests.get('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER']})
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.get('http://api:5000/publications/' + id, headers=headers)
 	data = response.json()
 	if((response.status_code != 200) or ("publication" not in data)):
 		return redirect(url_for("render_publications"))
 	data = data['publication']
 	data = data[0]
-	response = requests.get('http://api:5000/publications/'+ id + "/files", json={"username": app.config['CURRENT_USER']})
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.get('http://api:5000/publications/'+ id + "/files", headers=headers)
 	files = response.json()
 	files = files['publication']
 	if(len(files) == 0):
@@ -160,19 +159,18 @@ def render_publications_id(id):
 def publications_id_post(id):
 	if(request.form['btn'] == 'Back'):
 		return redirect(url_for('render_publications'))
-	elif(request.form['btn'] == 'Edit'):
-		return redirect(url_for('render_publication_id_edit', id=id))
 	elif(request.form['btn'] == 'Add file'):
 		file = request.files.get('file')
 		files = {'file': (file.filename, file, 'application/pdf')}
 		if(file.filename != ''):
-				headers = {'Content-type': 'multipart/form-data'}
-				response = requests.post('http://api:5000/publications/' + str(id) + "/files", files=files)
+				headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+				response = requests.post('http://api:5000/publications/' + str(id) + "/files", files=files, headers=headers)
 		return redirect(url_for('render_publications_id', id=id))
 
 @app.route('/publications/<id>/edit', methods=['GET'])
 def render_publication_id_edit(id):
-	response = requests.get('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER']})
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.get('http://api:5000/publications/' + id, headers=headers)
 	data = response.json()
 	if((response.status_code != 200) or ("publication" not in data)):
 		return redirect(url_for("render_publications_id", id=id))
@@ -207,23 +205,29 @@ def send_publications_id_edit(id):
 		author = request.form['author']
 		publisher = request.form['publisher']
 		date = request.form['date']
-		response = requests.put('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER'],"id": id, "title": title, "author": author, "publisher": publisher, "date":date})
+		headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+		response = requests.put('http://api:5000/publications/' + id, json={"id": id, "title": title, "author": author, "publisher": publisher, "date":date}, headers=headers)
 	return redirect(url_for('render_publications_id', id=id))
 
 @app.route('/publications/<id>/delete', methods=['GET'])
 def publications_id_delete(id):
-	response = requests.delete('http://api:5000/publications/' + id, json={"username": app.config['CURRENT_USER']})
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.delete('http://api:5000/publications/' + id, headers=headers)
 	return redirect(url_for('render_publications'))
 
 @app.route('/publications/<pid>/files/<fid>', methods=['GET'])
 def file_download(pid, fid):
-	response = requests.get('http://api:5000/publications/' + pid + "/files/" + fid)
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.get('http://api:5000/publications/' + pid + "/files/" + fid, headers=headers)
+	if(response.status_code != 200):
+		return redirect(url_for('render_publications_id', id=pid))
 	resp = Response(response=response.content, content_type='application/pdf')
 	return resp
-
+	
 @app.route('/publications/<pid>/files/<fid>/delete', methods=['GET'])
 def file_delete(pid, fid):
-	response = requests.delete('http://api:5000/publications/' + pid + "/files/" + fid)
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.delete('http://api:5000/publications/' + pid + "/files/" + fid, headers=headers)
 	return redirect(url_for('render_publications_id', id=pid))
 
 def create_jwt(expire_time):
