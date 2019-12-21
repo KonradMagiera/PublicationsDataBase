@@ -14,6 +14,7 @@ load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 app.config['CURRENT_USER'] = ''
 CREDENTIALS_EXPIRE = int(os.getenv("CREDENTIALS_EXPIRE"))
+PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
 #UPLOAD_TIME = int(os.getenv("UPLOAD_TIME"))
 #DOWNLOAD_TIME = int(os.getenv("DOWNLOAD_TIME"))
 
@@ -77,10 +78,7 @@ def render_profile():
 @app.route('/profile', methods=['POST'])
 def profile():
 	if request.form['btn'] == 'Logout':
-		session_id = request.cookies.get('session_id')
-		token = {"username": app.config['CURRENT_USER'], "session_id": session_id, "exp": datetime.now() + timedelta(seconds=CREDENTIALS_EXPIRE)}
-		token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
-		headers= {"Authorization": token}
+		headers= {"Authorization": create_jwt(CREDENTIALS_EXPIRE)}
 		response = requests.post("http://api:5000/logout", headers=headers)
 		if(response.status_code == 200):
 			resp = make_response(redirect(url_for('login')))
@@ -97,16 +95,17 @@ def profile():
 
 @app.route('/publications', methods=['GET'])
 def render_publications():
-	response = requests.get("http://api:5000/publications", json={"username": app.config['CURRENT_USER']})
-	files = list()
+	headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+	response = requests.get("http://api:5000/publications", headers=headers)
+	pubs = list()
 	data = response.json()
-	if("publication" not in data):
-		files = None
+	if(("publication" not in data) or response.status_code != 200):
+		pubs = None
 	else:	
 		data = data['publication']
 		for pub in data:
-			files.append({'id': pub['id'], 'title': pub['title']})
-	return render_template('publications.html', publications=files)
+			pubs.append({'id': pub['id'], 'title': pub['title']})
+	return render_template('publications.html', publications=pubs)
 
 @app.route('/publications', methods=['POST'])
 def publications_back():
@@ -128,15 +127,17 @@ def publications_add():
 		publisher = request.form['publisher']
 		date = request.form['date']
 		file = request.files.get('file')
-		files = {'file': (file.filename, file, 'application/pdf')}
-		
-		response = requests.post('http://api:5000/publications', json={"username": app.config['CURRENT_USER'], "title": title, "author": author, "publisher": publisher, "date": date})
+		files = {"file": (file.filename, file, 'application/pdf')}
+
+		token = create_jwt(PUBLICATIONS_ACCESS)
+		headers= {"Authorization": token}
+		response = requests.post('http://api:5000/publications', json={"title": title, "author": author, "publisher": publisher, "date": date}, headers=headers)
 		if(file.filename != ''):
 			data = response.json()
 			if('id' in data):
 				id = data['id']
-				headers = {'Content-type': 'multipart/form-data'}
-				response = requests.post('http://api:5000/publications/' + str(id) + "/files", files=files)
+				headers = {"Authorization": token}
+				response = requests.post("http://api:5000/publications/" + str(id) + "/files", files=files, headers=headers)
 
 	return redirect(url_for('render_publications'))
 
@@ -223,5 +224,10 @@ def file_download(pid, fid):
 @app.route('/publications/<pid>/files/<fid>/delete', methods=['GET'])
 def file_delete(pid, fid):
 	response = requests.delete('http://api:5000/publications/' + pid + "/files/" + fid)
-	print(response.text, flush=True)
 	return redirect(url_for('render_publications_id', id=pid))
+
+def create_jwt(expire_time):
+	session_id = request.cookies.get('session_id')
+	token = {"username": app.config['CURRENT_USER'], "session_id": session_id, "exp": datetime.now() + timedelta(seconds=expire_time)}
+	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
+	return token

@@ -183,29 +183,23 @@ def login():
 @app.route('/logout', methods=['POST'])
 def logout():
 	token_decode = request.headers.get('Authorization')
-	try:	
-		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
-	except jwt.ExpiredSignatureError:
-		msg = {"message": "token expired"}
-		return jsonify(msg), 401
+	token_decode, status = validate_token(token_decode)
+	if(status != 200):
+		return token_decode, status
 
-	if(("username" in token_decode) and ("session_id" in token_decode) and (token_decode['session_id'] == app.config['SESSION_ID'])):
-		app.config['SESSION_ID'] = ''
-		msg = {"message": "logged out"}
-		return jsonify(msg), 200
-	else:
-		msg = {"message": "unexpected error"}
-		return jsonify(msg), 500
+	app.config['SESSION_ID'] = ''
+	msg = {"message": "logged out"}
+	return jsonify(msg), 200
 
 @app.route('/', methods=['GET'])
 @app.route('/publications', methods=['GET'])
 def publications():
-	data = request.get_json()
-	#JWT
-	if('username' not in data):
-		data = {"message": "username was not provided"}
-		return jsonify(data), 401
-	user = data['username']
+	token_decode = request.headers.get('Authorization')
+	token_decode, status = validate_token(token_decode)
+	if(status != 200):
+		return token_decode, status
+
+	user = token_decode['username']
 	publ = Publication.query.filter_by(user=user).all()
 	tmp_pub = list()
 	for p in publ:
@@ -216,39 +210,40 @@ def publications():
 @app.route('/', methods=['POST'])
 @app.route('/publications', methods=['POST'])
 def publications_add():
-	#JWT
-	data = request.get_json() #username, jwt, author, publisher, title
-	if(("username" not in data) or ("title" not in data) or ("author" not in data) or ("publisher" not in data)):
-		msg = {"message": "missing json parameters"}
-		return jsonify(msg)
+	token_decode = request.headers.get('Authorization')
+	token_decode, status = validate_token(token_decode)
+	if(status != 200):
+		return token_decode, status
+
+	data = request.get_json()
+	if(("title" not in data) or ("author" not in data) or ("publisher" not in data)):
+		msg = {"message": "publication's information not provided"}
+		return jsonify(msg), 401
 	
 	pub = Publication.query.filter_by(title=data['title']).first()
 	if(pub != None):
 		msg = {"message": "publication exists"}
 		return jsonify(msg), 401
 	
-	error = False
 	id = None
 	try:
 		pub = None
 		if(("date" in data) and data['date'] != ''):
 			format_str = '%Y-%m-%d'
 			datetime_obj = datetime.strptime(data['date'], format_str)
-			pub = Publication(title=data['title'], author=data['author'], publisher=data['publisher'], user=data['username'], pub_date=datetime_obj)
+			pub = Publication(title=data['title'], author=data['author'], publisher=data['publisher'], user=token_decode['username'], pub_date=datetime_obj)
 			db.session.add(pub)
 			db.session.commit()
 		else:
-			pub = Publication(title=data['title'], author=data['author'], publisher=data['publisher'], user=data['username'])
+			pub = Publication(title=data['title'], author=data['author'], publisher=data['publisher'], user=token_decode['username'])
 			db.session.add(pub)
 			db.session.commit()
 		id = pub.get_all()
 		id = id['id']
 	except IntegrityError:
-		error = True
 		db.session.rollback()
 
-	msg = {}
-	if(error):
+	if(id == None):
 		msg = {"message": "add failed"}
 		return jsonify(msg), 401
 	else:
@@ -330,6 +325,12 @@ def publicationspid_files(pid):
 
 @app.route('/publications/<pid>/files', methods=['POST'])
 def files_add(pid):
+	token_decode = request.headers.get('Authorization')
+	token_decode, status = validate_token(token_decode)
+	if(status != 200):
+		return token_decode, status
+
+
 	files = request.files.get('file')
 	extension = files.filename.split(".")[-1]
 	msg = {"message": "before save"}
@@ -425,3 +426,20 @@ def delete_all_pub_files(pid):
 			db.session.rollback()
 			msg = {"message": "Failed to delete"}
 			return jsonify(msg), 401
+
+def validate_token(token):
+	token_decode =token
+	try:	
+		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
+	except jwt.ExpiredSignatureError:
+		msg = {"message": "token expired"}
+		return jsonify(msg), 401
+
+	if(('username' not in token_decode) or ('session_id' not in token_decode)):
+		msg = {"message": "not authorized connection"}
+		return jsonify(msg), 401
+	elif(token_decode['session_id'] != app.config['SESSION_ID']):
+		msg = {"message": "validation error"}
+		return jsonify(msg), 401
+	else:
+		return token_decode, 200
