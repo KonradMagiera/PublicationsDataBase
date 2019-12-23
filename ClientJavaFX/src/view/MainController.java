@@ -13,7 +13,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
 
 public class MainController implements Initializable {
@@ -22,8 +24,14 @@ public class MainController implements Initializable {
     private Pane display;
 
     @Override
-    public void initialize(URL url, ResourceBundle rb) {
-
+    public void initialize(URL url, ResourceBundle rb){
+        try {
+            FXMLLoader loader = new FXMLLoader(this.getClass().getResource("/clientjavafx/fxml/login.fxml"));;
+            Pane pane = loader.load();
+            display.getChildren().add(pane);
+        } catch (IOException ex) {
+            System.out.println("Jakiś błąd");
+        }
     }
 
     @FXML

@@ -13,13 +13,12 @@ public class ClientJavaFX extends Application {
 
     @Override
     public void start(Stage primaryStage)  throws IOException{
-        FXMLLoader loader = new FXMLLoader(this.getClass().getResource("/clientjavafx/fxml/main.fxml"));;
-        //System.out.println(loader.getRoot().toString());
+        FXMLLoader loader = new FXMLLoader(this.getClass().getResource("/clientjavafx/fxml/mainlayout.fxml"));;
 	GridPane pane = loader.load();
-	//Scene scene = new Scene(pane);
+	Scene scene = new Scene(pane);
         primaryStage.setTitle("Publications");
-        //primaryStage.setScene(scene);
-        primaryStage.setResizable(false);
+        primaryStage.setScene(scene);
+        primaryStage.setResizable(true);
         primaryStage.show();
     }
 
