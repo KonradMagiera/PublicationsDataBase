@@ -14,7 +14,7 @@ SESSION_ID = ""
 
 
 
-# TODO  add_file (used in 2 places); open_pub; delete_pub (used in 2 places 1/2); edit_pub (used in 2 places)
+# TODO  add_file (used in 2 places); open_pub (almost done); edit_pub (used in 2 places), add_pub; delete_file; download_file
 
 
 def start_menu():
@@ -32,6 +32,12 @@ def publications_menu():
     print("\nMenu:")
     print("-1. Back     0. Add publication")
     print("Type publication id for more options ([id]. [Title])\n")
+    print("Go to: ", end="")
+
+def pub_menu():
+    print("\nMenu:")
+    print("-2. Back     -1. Edit        0. Delete")
+    print("Type file id for more options ([id]. [Filename])\n")
     print("Go to: ", end="")
 
 def publications_options(id, title):
@@ -103,6 +109,21 @@ def delete_publication(id):
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
     requests.delete('http://localhost:5000/publications/' + str(id), headers=headers)
 
+def print_pub(id):
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    response = requests.get('http://localhost:5000/publications/' + str(id), headers=headers)
+    data = response.json()
+    if((response.status_code != 200) or ("publication" not in data)):
+        return False
+    data = data['publication']
+    data = data[0]
+
+    print("%d. %s" % (data["id"], data["title"]))
+    print("Author: %s" % data["author"])
+    print("Publisher: %s" % data["publisher"])
+    print("Date: %s" % data["pub_date"])
+    return True
+
 
 while(True): # login/exit       1
     start_menu()
@@ -153,7 +174,29 @@ while(True): # login/exit       1
                                 continue
 
                             if(choice == 1): #Open TODO
-                                print() # print pub; choice add/back/edit
+                                
+                                found = print_pub(id_exist)
+                                if(not found):
+                                    break
+
+                                pub_menu()
+                                try:
+                                    choice = int(input())
+                                except ValueError:
+                                    print("give valid number")
+                                    continue
+                                
+                                if(choice == -2): #Back
+                                    break
+                                elif(choice == -1): #Edit TODO
+                                    print()
+                                elif(choice == 0): #Delete
+                                    delete_publication(id_exist)
+                                    break
+                                else: #File; add, delete, download TODO
+                                    print("\nIncorrect number. Try again\n")
+
+
                             elif(choice == 2): #Edit TODO
                                 print()
 
