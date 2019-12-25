@@ -105,24 +105,116 @@ def print_publications(pubs):
         for p in pubs:
             print("%d. %s" % (p["id"], p["title"]))
 
+def add_publication():  # TODO add_file
+    title = ""
+    author = ""
+    publisher = ""
+    date = ""
+
+    print("Title: ", end="")
+    title = input()
+
+    print("Author: ", end="")
+    author = input()
+
+    print("Publisher: ", end="")
+    publisher = input()
+
+    while(True):
+        print("Date (YYYY-MM-DD or empty): ", end="")
+        date = input()
+        if(len(date) == 10 or date == ""):
+            break
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    requests.post('http://localhost:5000/publications', json={"title": title, "author": author, "publisher": publisher, "date": date}, headers=headers)
+
+def edit_publication(id):
+    print("Leave empty field if you want to keep current value\n")
+    title = ""
+    author = ""
+    publisher = ""
+    date = ""
+    data = get_pub_data(id)
+    if(data):
+        title = data["title"]
+        author = data["author"]
+        publisher = data["publisher"]
+        date = data["pub_date"]
+
+    print("Title: ", end="")
+    title_tmp = input()
+    if(title_tmp != ""):
+        title = title_tmp
+
+    print("Author: ", end="")
+    author_tmp = input()
+    if(author_tmp != ""):
+        author = author_tmp
+
+    print("Publisher: ", end="")
+    publisher_tmp = input()
+    if(publisher_tmp != ""):
+        publisher = publisher_tmp
+
+    while(True):
+        print("Date (YYYY-MM-DD or empty): ", end="")
+        date_tmp = input()
+        if(len(date_tmp) == 10):
+            date = date_tmp
+            break
+        elif(date_tmp == ""):
+            date = build_date(date)
+            break
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    requests.put('http://localhost:5000/publications/' + str(id), json={"id": str(id), "title": title, "author": author, "publisher": publisher, "date":date}, headers=headers)
+    
+
 def delete_publication(id):
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
     requests.delete('http://localhost:5000/publications/' + str(id), headers=headers)
 
 def print_pub(id):
+    data = get_pub_data(id)
+    if(data):
+        print("%d. %s" % (data["id"], data["title"]))
+        print("Author: %s" % data["author"])
+        print("Publisher: %s" % data["publisher"])
+        print("Date: %s" % data["pub_date"])
+        return True
+    return False
+
+def get_pub_data(id):
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
     response = requests.get('http://localhost:5000/publications/' + str(id), headers=headers)
     data = response.json()
     if((response.status_code != 200) or ("publication" not in data)):
-        return False
+        return None
     data = data['publication']
     data = data[0]
+    return data
 
-    print("%d. %s" % (data["id"], data["title"]))
-    print("Author: %s" % data["author"])
-    print("Publisher: %s" % data["publisher"])
-    print("Date: %s" % data["pub_date"])
-    return True
+def build_date(pub_date):
+    date = pub_date[5:-13]
+    day = date[0:2]
+    month = {
+		'Jan' : 1,
+        'Feb' : 2,
+        'Mar' : 3,
+        'Apr' : 4,
+        'May' : 5,
+        'Jun' : 6,
+        'Jul' : 7,
+        'Aug' : 8,
+        'Sep' : 9, 
+        'Oct' : 10,
+        'Nov' : 11,
+        'Dec' : 12}
+    tmp_mon = date[3:6]
+    month = month[tmp_mon]
+    year = date[7:11]
+    date = str(year) + '-' + str(month) + '-' + day
+    return date
+
 
 
 while(True): # login/exit       1
@@ -135,7 +227,7 @@ while(True): # login/exit       1
     if(choice == 1): #login
         is_logged_in, SESSION_ID, CURRENT_USER = login()
 
-        while(is_logged_in): #          2
+        while(is_logged_in): #profile publications/logout        2
             profile_menu()
             try:
                 choice = int(input())
@@ -143,7 +235,7 @@ while(True): # login/exit       1
                 print("give valid number")
                 continue
             if(choice == 1): #publications
-                while(True): #choose publication and option     3
+                while(True): #choose publication and option    3
                     pubs = publications()
                     print_publications(pubs)
                     publications_menu()
@@ -153,8 +245,8 @@ while(True): # login/exit       1
                         print("give valid number")
                         continue
                     
-                    if(choice == 0): #Add publication TODO
-                        print("AddXX")
+                    if(choice == 0): #Add publication TODO add_file
+                        add_publication()
                     elif(choice == -1): #Back to profile
                         break
                     else:
@@ -173,7 +265,7 @@ while(True): # login/exit       1
                                 print("give valid number")
                                 continue
 
-                            if(choice == 1): #Open TODO
+                            if(choice == 1): #Open
                                 
                                 found = print_pub(id_exist)
                                 if(not found):
@@ -188,8 +280,9 @@ while(True): # login/exit       1
                                 
                                 if(choice == -2): #Back
                                     break
-                                elif(choice == -1): #Edit TODO
-                                    print()
+                                elif(choice == -1): #Edit
+                                    edit_publication(id_exist)
+                                    break
                                 elif(choice == 0): #Delete
                                     delete_publication(id_exist)
                                     break
@@ -197,8 +290,6 @@ while(True): # login/exit       1
                                     print("\nIncorrect number. Try again\n")
 
 
-                            elif(choice == 2): #Edit TODO
-                                print()
 
 
 
@@ -206,6 +297,10 @@ while(True): # login/exit       1
 
 
 
+
+                            elif(choice == 2): #Edit
+                                edit_publication(id_exist)
+                                break
                             elif(choice == 3): #Delete
                                 delete_publication(id_exist)
                                 break
