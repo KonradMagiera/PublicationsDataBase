@@ -14,7 +14,7 @@ SESSION_ID = ""
 
 
 
-# TODO  add_file (used in 2 places); open_pub; delete_pub (used in 2 places); edit_pub (used in 2 places)
+# TODO  add_file (used in 2 places); open_pub; delete_pub (used in 2 places 1/2); edit_pub (used in 2 places)
 
 
 def start_menu():
@@ -34,9 +34,10 @@ def publications_menu():
     print("Type publication id for more options ([id]. [Title])\n")
     print("Go to: ", end="")
 
-def publications_options():
-    print("\nOptions:")
-    print("1. Open      2. Edit     3. Delete\n")
+def publications_options(id, title):
+    print("\n%d. %s" % (id, title))
+    print("Options:")
+    print("1. Open      2. Edit     3. Delete       4. Cancel\n")
     print("Go to: ", end="")
 
 def create_jwt(expire_time):
@@ -81,8 +82,6 @@ def logout():
         return "", ""
 
 def publications():
-    print(CURRENT_USER)
-    print(SESSION_ID)
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
     response = requests.get("http://localhost:5000/publications", headers=headers)
     pubs = list()
@@ -100,7 +99,12 @@ def print_publications(pubs):
         for p in pubs:
             print("%d. %s" % (p["id"], p["title"]))
 
-while(True): # login/exit
+def delete_publication(id):
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    requests.delete('http://localhost:5000/publications/' + str(id), headers=headers)
+
+
+while(True): # login/exit       1
     start_menu()
     try:
         choice = int(input())
@@ -110,7 +114,7 @@ while(True): # login/exit
     if(choice == 1): #login
         is_logged_in, SESSION_ID, CURRENT_USER = login()
 
-        while(is_logged_in):
+        while(is_logged_in): #          2
             profile_menu()
             try:
                 choice = int(input())
@@ -118,8 +122,8 @@ while(True): # login/exit
                 print("give valid number")
                 continue
             if(choice == 1): #publications
-                pubs = publications()
-                while(True): #choose publication and option:   1.pub -> pub: 1 method: delete/edit/open
+                while(True): #choose publication and option     3
+                    pubs = publications()
                     print_publications(pubs)
                     publications_menu()
                     try:
@@ -134,32 +138,38 @@ while(True): # login/exit
                         break
                     else:
                         id_exist = 0
+                        pub_title = ""
                         for p in pubs:
                             if(int(p["id"]) == choice):
                                 id_exist = choice
+                                pub_title = p["title"]
                                 break
-                        while(id_exist != 0): #Do something with chosen publication
-                            publications_options()
+                        while(id_exist != 0): #Do something with chosen publication         4
+                            publications_options(id_exist, pub_title)
                             try:
                                 choice = int(input())
                             except ValueError:
                                 print("give valid number")
                                 continue
-                            print(id_exist)
 
                             if(choice == 1): #Open TODO
                                 print() # print pub; choice add/back/edit
                             elif(choice == 2): #Edit TODO
                                 print()
-                            elif(choice == 3): #Delete TODO
-                                print()
+
+
+
+
+
+
+
+                            elif(choice == 3): #Delete
+                                delete_publication(id_exist)
+                                break
+                            elif(choice == 4): #Cancel
+                                break
                             else:
                                 print("\nIncorrect number. Try again\n")
-
-
-
-
-
             elif(choice == 2): #logout
                 SESSION_ID, CURRENT_USER = logout()
                 break
