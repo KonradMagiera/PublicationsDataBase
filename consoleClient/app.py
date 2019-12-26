@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import os
 import jwt
+import re
 
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -12,9 +13,6 @@ PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
 CURRENT_USER = ""
 SESSION_ID = ""
 
-
-
-# TODO  delete_file; download_file
 
 
 def start_menu():
@@ -260,7 +258,16 @@ def delete_file(pid, fid):
     requests.delete('http://localhost:5000/publications/' + str(pid) + "/files/" + str(fid), headers=headers)
 
 def download_file(pid, fid):
-    print()
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    response = requests.get('http://localhost:5000/publications/' + str(pid) + "/files/" + str(fid), headers=headers)
+    if(response.status_code != 200):
+        return False
+
+    d = response.headers['content-disposition']
+    fname = re.findall("filename=(.+)", d)[0]
+    with open(fname, 'wb') as f:
+        f.write(response.content)
+    return True
 
 
 while(True): # login/exit       1
@@ -357,8 +364,10 @@ while(True): # login/exit       1
                                         if(choice == 1): #delete
                                             delete_file(id_exist, fid)
                                             break
-                                        elif(choice == 2): #download TODO
-                                            print()
+                                        elif(choice == 2): #download
+                                            downloaded = download_file(id_exist, fid)
+                                            if(not downloaded):
+                                                print("\nFailed to download!\n")
                                             break
                                         elif(choice == 3): #cancel
                                             break                                  
