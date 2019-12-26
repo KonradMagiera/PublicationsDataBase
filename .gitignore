@@ -1,6 +1,3 @@
 
 *.pyc
 api/db.sqlite3
-/ClientJavaFX/nbproject/private/
-/ClientJavaFX/build/
-/ClientJavaFX/dist/
