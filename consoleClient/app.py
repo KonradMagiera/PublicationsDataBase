@@ -14,7 +14,7 @@ SESSION_ID = ""
 
 
 
-# TODO  add_file (used in 2 places); open_pub (almost done); edit_pub (used in 2 places), add_pub; delete_file; download_file
+# TODO  add_file (used in 2 places); add_pub (file support); delete_file; download_file
 
 
 def start_menu():
@@ -36,7 +36,7 @@ def publications_menu():
 
 def pub_menu():
     print("\nMenu:")
-    print("-2. Back     -1. Edit        0. Delete")
+    print("-3. Back     -2. Edit        -1. Delete      0, Add file")
     print("Type file id for more options ([id]. [Filename])\n")
     print("Go to: ", end="")
 
@@ -44,6 +44,12 @@ def publications_options(id, title):
     print("\n%d. %s" % (id, title))
     print("Options:")
     print("1. Open      2. Edit     3. Delete       4. Cancel\n")
+    print("Go to: ", end="")
+
+def file_options(id, filename):
+    print("\n%d. %s" % (id, filename))
+    print("Options:")
+    print("1. Delete      2. Download       3. Cancel\n")
     print("Go to: ", end="")
 
 def create_jwt(expire_time):
@@ -168,18 +174,22 @@ def edit_publication(id):
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
     requests.put('http://localhost:5000/publications/' + str(id), json={"id": str(id), "title": title, "author": author, "publisher": publisher, "date":date}, headers=headers)
     
-
 def delete_publication(id):
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
     requests.delete('http://localhost:5000/publications/' + str(id), headers=headers)
 
 def print_pub(id):
     data = get_pub_data(id)
+    files = get_pub_files(id)
     if(data):
         print("%d. %s" % (data["id"], data["title"]))
         print("Author: %s" % data["author"])
         print("Publisher: %s" % data["publisher"])
         print("Date: %s" % data["pub_date"])
+        if(files):
+            print("")
+            for f in files:
+                print("%d. %s" % (f["id"], f["filename"]))
         return True
     return False
 
@@ -192,6 +202,15 @@ def get_pub_data(id):
     data = data['publication']
     data = data[0]
     return data
+
+def get_pub_files(id):
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    response = requests.get('http://localhost:5000/publications/'+ str(id) + "/files", headers=headers)
+    files = response.json()
+    files = files['publication']
+    if(len(files) == 0):
+        files = None
+    return files
 
 def build_date(pub_date):
     date = pub_date[5:-13]
@@ -215,7 +234,8 @@ def build_date(pub_date):
     date = str(year) + '-' + str(month) + '-' + day
     return date
 
-
+def add_file(): # TODO
+    print()
 
 while(True): # login/exit       1
     start_menu()
@@ -278,26 +298,53 @@ while(True): # login/exit       1
                                     print("give valid number")
                                     continue
                                 
-                                if(choice == -2): #Back
+                                if(choice == -3): #Back
                                     break
-                                elif(choice == -1): #Edit
+                                elif(choice == -2): #Edit
                                     edit_publication(id_exist)
                                     break
-                                elif(choice == 0): #Delete
+                                elif(choice == -1): #Delete
                                     delete_publication(id_exist)
                                     break
-                                else: #File; add, delete, download TODO
-                                    print("\nIncorrect number. Try again\n")
+                                elif(choice == 0): #add file TODO
+                                    print()
+                                    break
+                                else: #File
+                                    fid = 0
+                                    filename = ""
+                                    files = get_pub_files(id_exist)
+                                    for f in files:
+                                        if(int(f["id"]) == choice):
+                                            fid = choice
+                                            filename = f["filename"]
+                                            break
+
+                                    while(fid != 0): #delete, download, cancel
+                                        file_options(fid, filename)
+                                        try:
+                                            choice = int(input())
+                                        except ValueError:
+                                            print("give valid number")
+                                            continue
+
+                                        if(choice == 1): #delete TODO
+                                            print()
+                                            break
+                                        elif(choice == 2): #download TODO
+                                            print()
+                                            break
 
 
 
 
 
 
-
-
-
-
+                                        elif(choice == 3): #cancel
+                                            break                                  
+                                        else:
+                                            print("\nIncorrect number. Try again\n")
+                                        print("\n%d\n" % fid)
+                                    break
                             elif(choice == 2): #Edit
                                 edit_publication(id_exist)
                                 break

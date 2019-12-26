@@ -351,7 +351,7 @@ def files_add(pid):
 
 		filequery = File.query.filter_by(pub_id=int(pid), filename=files.filename).first()
 		if(filequery != None):
-			msg = {"message": "file with specific name has been already added to publication"}
+			msg = {"message": "file with specific name has already been added to publication"}
 			return jsonify(msg), 401
 		try:
 			filequery = File(filename=files.filename, pub_id=int(pid))
