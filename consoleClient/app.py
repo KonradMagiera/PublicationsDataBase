@@ -14,7 +14,7 @@ SESSION_ID = ""
 
 
 
-# TODO  add_file (used in 2 places); add_pub (file support); delete_file; download_file
+# TODO  delete_file; download_file
 
 
 def start_menu():
@@ -111,7 +111,7 @@ def print_publications(pubs):
         for p in pubs:
             print("%d. %s" % (p["id"], p["title"]))
 
-def add_publication():  # TODO add_file
+def add_publication():
     title = ""
     author = ""
     publisher = ""
@@ -132,7 +132,12 @@ def add_publication():  # TODO add_file
         if(len(date) == 10 or date == ""):
             break
     headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
-    requests.post('http://localhost:5000/publications', json={"title": title, "author": author, "publisher": publisher, "date": date}, headers=headers)
+    response = requests.post('http://localhost:5000/publications', json={"title": title, "author": author, "publisher": publisher, "date": date}, headers=headers)
+    data = response.json()
+    id = -1
+    if('id' in data):
+        id = data['id']
+    return id
 
 def edit_publication(id):
     print("Leave empty field if you want to keep current value\n")
@@ -234,8 +239,21 @@ def build_date(pub_date):
     date = str(year) + '-' + str(month) + '-' + day
     return date
 
-def add_file(): # TODO
-    print()
+def add_file(id):
+    print("File (path): ", end="")
+    file = input()
+    try:
+        file = open(file, "rb")
+    except IOError:
+        return False
+    filename = os.path.basename(file.name)
+    files = {'file': (filename, file, 'application/pdf')}
+    if(filename != ''):
+            headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+            response = requests.post('http://localhost:5000/publications/' + str(id) + "/files", files=files, headers=headers)
+            if(response.status_code == 201):
+                return True
+    return False
 
 while(True): # login/exit       1
     start_menu()
@@ -265,8 +283,12 @@ while(True): # login/exit       1
                         print("give valid number")
                         continue
                     
-                    if(choice == 0): #Add publication TODO add_file
-                        add_publication()
+                    if(choice == 0): #Add publication
+                        new_id = add_publication()
+                        if(new_id != -1):
+                            added = add_file(new_id)
+                            if(not added):
+                                print("\nFailed to add file!\n")
                     elif(choice == -1): #Back to profile
                         break
                     else:
@@ -306,8 +328,10 @@ while(True): # login/exit       1
                                 elif(choice == -1): #Delete
                                     delete_publication(id_exist)
                                     break
-                                elif(choice == 0): #add file TODO
-                                    print()
+                                elif(choice == 0): #add file
+                                    added = add_file(id_exist)
+                                    if(not added):
+                                        print("\nFailed to add file!\n")
                                     break
                                 else: #File
                                     fid = 0
@@ -319,7 +343,7 @@ while(True): # login/exit       1
                                             filename = f["filename"]
                                             break
 
-                                    while(fid != 0): #delete, download, cancel
+                                    while(fid != 0): #delete, download, cancel      5
                                         file_options(fid, filename)
                                         try:
                                             choice = int(input())
