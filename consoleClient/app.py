@@ -255,6 +255,14 @@ def add_file(id):
                 return True
     return False
 
+def delete_file(pid, fid):
+    headers= {"Authorization": create_jwt(PUBLICATIONS_ACCESS)}
+    requests.delete('http://localhost:5000/publications/' + str(pid) + "/files/" + str(fid), headers=headers)
+
+def download_file(pid, fid):
+    print()
+
+
 while(True): # login/exit       1
     start_menu()
     try:
@@ -282,7 +290,6 @@ while(True): # login/exit       1
                     except ValueError:
                         print("give valid number")
                         continue
-                    
                     if(choice == 0): #Add publication
                         new_id = add_publication()
                         if(new_id != -1):
@@ -299,6 +306,7 @@ while(True): # login/exit       1
                                 id_exist = choice
                                 pub_title = p["title"]
                                 break
+
                         while(id_exist != 0): #Do something with chosen publication         4
                             publications_options(id_exist, pub_title)
                             try:
@@ -306,20 +314,16 @@ while(True): # login/exit       1
                             except ValueError:
                                 print("give valid number")
                                 continue
-
                             if(choice == 1): #Open
-                                
                                 found = print_pub(id_exist)
                                 if(not found):
                                     break
-
                                 pub_menu()
                                 try:
                                     choice = int(input())
                                 except ValueError:
                                     print("give valid number")
                                     continue
-                                
                                 if(choice == -3): #Back
                                     break
                                 elif(choice == -2): #Edit
@@ -343,26 +347,19 @@ while(True): # login/exit       1
                                             filename = f["filename"]
                                             break
 
-                                    while(fid != 0): #delete, download, cancel      5
+                                    while(fid != 0): #delete, download, cancel (file handling)      5
                                         file_options(fid, filename)
                                         try:
                                             choice = int(input())
                                         except ValueError:
                                             print("give valid number")
                                             continue
-
-                                        if(choice == 1): #delete TODO
-                                            print()
+                                        if(choice == 1): #delete
+                                            delete_file(id_exist, fid)
                                             break
                                         elif(choice == 2): #download TODO
                                             print()
                                             break
-
-
-
-
-
-
                                         elif(choice == 3): #cancel
                                             break                                  
                                         else:
