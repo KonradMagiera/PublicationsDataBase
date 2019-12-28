@@ -1,0 +1,3 @@
+python-dotenv
+pyjwt==1.7.1
+requests==2.22.0
