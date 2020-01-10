@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, make_response, send_file, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, make_response, send_file, jsonify, Response, session
+import secrets
 import requests
 import os
 import jwt
@@ -11,24 +12,21 @@ app = Flask(__name__)
 # CONFIG
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
-app.config['CURRENT_USER'] = ''
 REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
 
-
+app.config["SECRET_KEY"] = secrets.token_urlsafe(16)
 #######
 
 @app.route('/', methods=['GET'])
 def index():
-	
-	user_tmp = app.config['CURRENT_USER']
 	response = ''
-	if(user_tmp == ''):
+	if(not "USERNAME" in session):
 		response = make_response(redirect(url_for('login')))
 		response.set_cookie('session_id', '', max_age=0)
 	else:
 		session_id = request.cookies.get('session_id')
-		response = redirect(url_for('profile', username=app.config['CURRENT_USER']) if session_id else url_for('render_login'))
+		response = redirect(url_for('profile', username=session["USERNAME"]) if session_id else url_for('render_login'))
 	return response
 
 @app.route('/login', methods=['GET'])
@@ -54,7 +52,7 @@ def login():
 			msg = "token expired"
 			return redirect(url_for('render_login', error= msg)), 401
 
-		app.config['CURRENT_USER'] = user
+		session["USERNAME"] = user
 		resp = make_response(redirect(url_for('render_profile')))
 		session_id = token_decode['session_id']
 		resp.set_cookie('session_id', session_id, httponly=True)
@@ -65,11 +63,11 @@ def login():
 
 @app.route('/profile', methods=['GET'])
 def render_profile():
-	if(('session_id' in request.cookies) and (app.config['CURRENT_USER'] != '')):
-		user = app.config['CURRENT_USER']
+	if(('session_id' in request.cookies) and (session["USERNAME"] != '')):
+		user = session["USERNAME"]
 		return render_template("profile.html", username=user)
 	else:
-		app.config['CURRENT_USER'] = ''
+		session["USERNAME"] = ''
 		return redirect(url_for('login', error="Session expired"))
 
 @app.route('/profile', methods=['POST'])
@@ -80,12 +78,12 @@ def profile():
 		if(response.status_code == 200):
 			resp = make_response(redirect(url_for('login')))
 			resp.set_cookie('session_id', '', max_age=0)
-			app.config['CURRENT_USER'] = ''
+			session["USERNAME"] = ''
 			return resp
 		else:
 			resp = make_response(redirect(url_for('login', error="error occured")))
 			resp.set_cookie('session_id', '', max_age=0)
-			app.config['CURRENT_USER'] = ''
+			session["USERNAME"] = ''
 			return resp
 	else:
 		return redirect(url_for('render_publications'))
@@ -232,6 +230,6 @@ def file_delete(pid, fid):
 
 def create_jwt(expire_time):
 	session_id = request.cookies.get('session_id')
-	token = {"username": app.config['CURRENT_USER'], "session_id": session_id, "exp": datetime.now() + timedelta(seconds=expire_time)}
+	token = {"username": session["USERNAME"], "session_id": session_id, "exp": datetime.now() + timedelta(seconds=expire_time)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	return token

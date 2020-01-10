@@ -16,12 +16,12 @@ app = Flask(__name__)
 # CONFIG
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
-REQUEST_CREDENTIALS_EXPIRE = int(os.getenv('REQUEST_CREDENTIALS_EXPIRE'))
+REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 
-app.config['SESSION_ID'] = ''
-app.config['UPLOAD_FOLDER'] = os.getenv("UPLOAD_FOLDER")
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///db.sqlite3"
+sessions = []
+app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
 db = SQLAlchemy(app)
 
 # DATABASE MODEL
@@ -145,21 +145,21 @@ except IntegrityError:
 
 #######
 
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def login():
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	try:	
-		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
+		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm="HS256")
 	except jwt.ExpiredSignatureError:
 		msg = {"message": "token expired"}
 		return jsonify(msg), 401
 
-	if(('username' not in token_decode) and ('password' not in token_decode)):
-		msg = {'message': 'Missing valid credentials'}
+	if(("username" not in token_decode) and ("password" not in token_decode)):
+		msg = {"message": "Missing valid credentials"}
 		return jsonify(msg), 401
 
-	user = token_decode['username']
-	password = token_decode['password']
+	user = token_decode["username"]
+	password = token_decode["password"]
 	password = str.encode(password)
 	password = SHA256.new(password)
 	password = password.hexdigest()
@@ -168,36 +168,40 @@ def login():
 		msg = {"message": "incorrect username or password"}
 		return jsonify(msg), 401
 	elif(user_db.password == password):
-		app.config['SESSION_ID'] = str(uuid4())
-		resp = make_response('logged in', 200)
-		token = {"session_id": app.config['SESSION_ID'], "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
-		token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
-		resp.headers['Authorization'] = token
+		session = str(uuid4())
+		sessions.append({"user": user, "session_id": session})
+		resp = make_response("logged in", 200)
+		token = {"session_id": session, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
+		token = jwt.encode(token, JWT_SECRET, algorithm="HS256")
+		resp.headers["Authorization"] = token
 		return resp
 	else:
 		msg = {"message": "incorrect username or password"}
 		return jsonify(msg), 401
 
-@app.route('/logout', methods=['POST'])
+@app.route("/logout", methods=["POST"])
 def logout():
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
-
-	app.config['SESSION_ID'] = ''
+	for u in sessions:
+		if((u["user"] == token_decode["username"]) and (u["session_id"] == token_decode["session_id"])):
+			sessions.remove(u)
+			break
+	print(sessions, flush=True)
 	msg = {"message": "logged out"}
 	return jsonify(msg), 200
 
-@app.route('/', methods=['GET'])
-@app.route('/publications', methods=['GET'])
+@app.route("/", methods=["GET"])
+@app.route("/publications", methods=["GET"])
 def publications():
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
 
-	user = token_decode['username']
+	user = token_decode["username"]
 	publ = Publication.query.filter_by(user=user).all()
 	tmp_pub = list()
 	for p in publ:
@@ -205,10 +209,10 @@ def publications():
 	data = { "publication": tmp_pub }
 	return jsonify(data), 200
 
-@app.route('/', methods=['POST'])
-@app.route('/publications', methods=['POST'])
+@app.route("/", methods=["POST"])
+@app.route("/publications", methods=["POST"])
 def publications_add():
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
@@ -218,7 +222,7 @@ def publications_add():
 		msg = {"message": "publication's information not provided"}
 		return jsonify(msg), 401
 	
-	pub = Publication.query.filter_by(title=data['title']).first()
+	pub = Publication.query.filter_by(title=data["title"]).first()
 	if(pub != None):
 		msg = {"message": "publication exists"}
 		return jsonify(msg), 401
@@ -226,18 +230,18 @@ def publications_add():
 	id = None
 	try:
 		pub = None
-		if(("date" in data) and data['date'] != ''):
-			format_str = '%Y-%m-%d'
-			datetime_obj = datetime.strptime(data['date'], format_str)
-			pub = Publication(title=data['title'], author=data['author'], publisher=data['publisher'], user=token_decode['username'], pub_date=datetime_obj)
+		if(("date" in data) and data["date"] != ""):
+			format_str = "%Y-%m-%d"
+			datetime_obj = datetime.strptime(data["date"], format_str)
+			pub = Publication(title=data["title"], author=data["author"], publisher=data["publisher"], user=token_decode["username"], pub_date=datetime_obj)
 			db.session.add(pub)
 			db.session.commit()
 		else:
-			pub = Publication(title=data['title'], author=data['author'], publisher=data['publisher'], user=token_decode['username'])
+			pub = Publication(title=data["title"], author=data["author"], publisher=data["publisher"], user=token_decode["username"])
 			db.session.add(pub)
 			db.session.commit()
 		id = pub.get_all()
-		id = id['id']
+		id = id["id"]
 	except IntegrityError:
 		db.session.rollback()
 
@@ -248,39 +252,39 @@ def publications_add():
 		msg = {"message": "publication added", "id": id}
 		return jsonify(msg), 201
 
-@app.route('/publications/<pid>', methods=['GET'])
+@app.route("/publications/<pid>", methods=["GET"])
 def publicationspid(pid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
 
-	publ = Publication.query.filter_by(id=pid, user=token_decode['username']).first()
+	publ = Publication.query.filter_by(id=pid, user=token_decode["username"]).first()
 	tmp_pub = list()
 	tmp_pub.append(publ.get_all())
 	data = { "publication": tmp_pub }
 	return jsonify(data), 200
 
-@app.route('/publications/<pid>', methods=['PUT'])
+@app.route("/publications/<pid>", methods=["PUT"])
 def publications_id_update(pid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
 
 	data = request.get_json()
-	if(('id' not in data) or ("title" not in data) or ("author" not in data) or ("publisher" not in data)):
+	if(("id" not in data) or ("title" not in data) or ("author" not in data) or ("publisher" not in data)):
 		msg = {"message": "publication's info not provided"}
 		return jsonify(msg), 401
-	pub = Publication.query.filter_by(id=data['id'], user=token_decode['username']).first()
+	pub = Publication.query.filter_by(id=data["id"], user=token_decode["username"]).first()
 	if(pub == None):
 		msg = {"message": "publication doesnt exists"}
 		return jsonify(msg), 401
 	date = None
-	if(data['date'] != ''):
-		format_str = '%Y-%m-%d'
-		date = datetime.strptime(data['date'], format_str)
-	pub.update(title=data['title'], author=data['author'], publisher=data['publisher'], pub_date=date)
+	if(data["date"] != ""):
+		format_str = "%Y-%m-%d"
+		date = datetime.strptime(data["date"], format_str)
+	pub.update(title=data["title"], author=data["author"], publisher=data["publisher"], pub_date=date)
 	msg = {"message": "Before commit"}
 	try:
 		db.session.commit()
@@ -291,14 +295,14 @@ def publications_id_update(pid):
 		msg = {"message": "title already exists"}
 		return jsonify(msg), 401
 
-@app.route('/publications/<pid>', methods=['DELETE'])
+@app.route("/publications/<pid>", methods=["DELETE"])
 def publications_id_delete(pid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
 
-	pubquery = Publication.query.filter_by(id=pid, user=token_decode['username'])
+	pubquery = Publication.query.filter_by(id=pid, user=token_decode["username"])
 	if(pubquery.count() != 1):
 		msg = {"message": f"publication with id {pid} doesnt exist"}
 		return jsonify(msg), 401
@@ -313,9 +317,9 @@ def publications_id_delete(pid):
 		msg = {"message": "Failed to delete"}
 		return jsonify(msg), 401
 
-@app.route('/publications/<pid>/files', methods=['GET'])
+@app.route("/publications/<pid>/files", methods=["GET"])
 def publicationspid_files(pid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
@@ -327,19 +331,19 @@ def publicationspid_files(pid):
 	data = { "publication": tmp_files }
 	return jsonify(data), 200
 
-@app.route('/publications/<pid>/files', methods=['POST'])
+@app.route("/publications/<pid>/files", methods=["POST"])
 def files_add(pid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
 
 
-	files = request.files.get('file')
+	files = request.files.get("file")
 	extension = files.filename.split(".")[-1]
 	msg = {"message": "before save"}
-	if files and extension == 'pdf':
-		filepath = os.path.join(app.config['UPLOAD_FOLDER'], pid)
+	if files and extension == "pdf":
+		filepath = os.path.join(app.config["UPLOAD_FOLDER"], pid)
 		if not os.path.exists(filepath):
 			os.mkdir(filepath)
 		filepath = os.path.join(filepath, files.filename)
@@ -368,9 +372,9 @@ def files_add(pid):
 		msg = {"message": "file is not a pdf"}
 		return jsonify(msg), 415
 
-@app.route('/publications/<pid>/files/<fid>', methods=['GET'])
+@app.route("/publications/<pid>/files/<fid>", methods=["GET"])
 def filesfid(pid, fid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
@@ -381,16 +385,16 @@ def filesfid(pid, fid):
 		return jsonify(msg), 401
 	
 	filename = files.get_all()
-	filename = filename['filename']
-	filepath = app.config['UPLOAD_FOLDER']
+	filename = filename["filename"]
+	filepath = app.config["UPLOAD_FOLDER"]
 	filepath = os.path.join(filepath, pid)
 	filepath = os.path.join(filepath, filename)
 	send = send_file(filepath, attachment_filename=filename, as_attachment=True)
 	return send, 200
 
-@app.route('/publications/<pid>/files/<fid>', methods=['DELETE'])
+@app.route("/publications/<pid>/files/<fid>", methods=["DELETE"])
 def file_delete(pid, fid):
-	token_decode = request.headers.get('Authorization')
+	token_decode = request.headers.get("Authorization")
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
@@ -400,10 +404,10 @@ def file_delete(pid, fid):
 		msg = {"messaage": "file not found"}
 		return jsonify(msg), 401
 	try:
-		filepath = os.path.join(app.config['UPLOAD_FOLDER'], pid)
+		filepath = os.path.join(app.config["UPLOAD_FOLDER"], pid)
 		files = File.query.filter_by(id=fid, pub_id=pid).first()
 		files = files.get_all()
-		filepath = os.path.join(filepath, files['filename'])
+		filepath = os.path.join(filepath, files["filename"])
 		filequery.delete()
 		db.session.commit()
 		msg = {"message": "Successfully deleted"}
@@ -420,14 +424,14 @@ def delete_all_pub_files(pid):
 	filenames = list()
 	for f in files:
 		tmp = f.get_all()
-		file_ids.append(tmp['id'])
-		filenames.append(tmp['filename'])
+		file_ids.append(tmp["id"])
+		filenames.append(tmp["filename"])
 	for fid, filename in zip(file_ids, filenames):
 		filequery = File.query.filter_by(id=int(fid), pub_id=int(pid))
 		if(filequery.count() != 1):
 			msg = {"message": "file not found"}
 			return jsonify(msg), 401
-		filepath = os.path.join(app.config['UPLOAD_FOLDER'], str(pid))
+		filepath = os.path.join(app.config["UPLOAD_FOLDER"], str(pid))
 		filepath = os.path.join(filepath, filename)
 		try:
 			filequery.delete()
@@ -440,18 +444,19 @@ def delete_all_pub_files(pid):
 			return jsonify(msg), 401
 
 def validate_token(token):
-	token_decode =token
+	token_decode = token
 	try:	
-		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm='HS256')
+		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm="HS256")
 	except jwt.ExpiredSignatureError:
 		msg = {"message": "token expired"}
 		return jsonify(msg), 401
 
-	if(('username' not in token_decode) or ('session_id' not in token_decode)):
+	if(("username" not in token_decode) or ("session_id" not in token_decode)):
 		msg = {"message": "not authorized connection"}
 		return jsonify(msg), 401
-	elif(token_decode['session_id'] != app.config['SESSION_ID']):
-		msg = {"message": "validation error"}
-		return jsonify(msg), 401
-	else:
-		return token_decode, 200
+
+	for u in sessions:
+		if((u["user"] == token_decode["username"]) and (u["session_id"] == token_decode["session_id"])):
+			return token_decode, 200
+	msg = {"message": "validation error"}
+	return jsonify(msg), 401
