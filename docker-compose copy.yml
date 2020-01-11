@@ -4,6 +4,9 @@ services:
   api:
     container_name: api
     build: ./api
+    volumes:
+      - ./api:/var/www/app
+      - ./api/uploads:/var/www/app/uploads
     ports:
       - "5000:5000"
   client:
@@ -11,5 +14,7 @@ services:
     build: ./client
     depends_on:
       - api
+    volumes:
+      - ./client:/var/www/app
     ports:
       - "5001:5000"

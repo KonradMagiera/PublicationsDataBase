@@ -10,7 +10,6 @@ import jwt
 import json
 from dotenv import load_dotenv
 
-
 app = Flask(__name__)
 
 # CONFIG
@@ -189,7 +188,6 @@ def logout():
 		if((u["user"] == token_decode["username"]) and (u["session_id"] == token_decode["session_id"])):
 			sessions.remove(u)
 			break
-	print(sessions, flush=True)
 	msg = {"message": "logged out"}
 	return jsonify(msg), 200
 
@@ -343,6 +341,9 @@ def files_add(pid):
 	extension = files.filename.split(".")[-1]
 	msg = {"message": "before save"}
 	if files and extension == "pdf":
+		filepath = os.path.join(app.config["UPLOAD_FOLDER"])
+		if not os.path.exists(filepath):
+			os.mkdir(filepath)
 		filepath = os.path.join(app.config["UPLOAD_FOLDER"], pid)
 		if not os.path.exists(filepath):
 			os.mkdir(filepath)
