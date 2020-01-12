@@ -9,11 +9,11 @@
 	
 	<body>
 		<div class="register">
-			<h1>Sign in</h1>
+			<h1>Sign in (multistage)</h1>
             <form method="post">
 				<div class="table">
-					<label class="describe" for="username">Username:</label>
-					<input type="text" name="username" required/>
+					<label class="describe">Username:</label>
+					<label>{{ user }} </label>
 				</div>
 				<div class="table">
 					<label class="describe" for="password">Password:</label>
@@ -21,7 +21,11 @@
 				</div>
 				<label class="err">{{ error }}</label>
 				<input type="submit" name="btn-signin" value="Login"/>
-            </form>
+				
+			</form>
+			<form method="post">
+				<input type="submit" name="btn-signin" value="Logout"/>
+			</form>
 		</div>
 	</body>
 </html>

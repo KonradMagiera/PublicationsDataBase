@@ -5,7 +5,9 @@ import os
 import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-
+from functools import wraps
+from authlib.integrations.flask_client import OAuth
+from six.moves.urllib.parse import urlencode
 
 app = Flask(__name__)
 
@@ -16,30 +18,84 @@ REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
 
 app.config["SECRET_KEY"] = secrets.token_urlsafe(16)
+oauth = OAuth(app)
+
+auth0 = oauth.register(
+    'auth0',
+    client_id='c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c',
+    client_secret='WHw-238VITTx5h9ssgq-Z6pddZzTdECEfH2hYU1-kmlfmW74cD3aZlTmq5jO3UkX',
+    api_base_url='https://uni-web-p4.eu.auth0.com',
+    access_token_url='https://uni-web-p4.eu.auth0.com/oauth/token',
+    authorize_url='https://uni-web-p4.eu.auth0.com/authorize',
+    client_kwargs={
+        'scope': 'openid profile email',
+    },
+)
+
 #######
+
+@app.route('/callback')
+def callback_handling():
+	auth0.authorize_access_token()
+	resp = auth0.get('userinfo')
+	userinfo = resp.json()
+	session["USERNAME"] = userinfo['name']
+	#session["SESSION_ID"] = "tmp"
+	return redirect(url_for('login'))
+
+def requires_auth(f):
+	@wraps(f)
+	def decorated(*args, **kwargs):
+		if(('USERNAME' not in session) or ('SESSION_ID' not in session)):
+			return redirect('/')
+		return f(*args, **kwargs)
+	return decorated
+
+def requires_user(f):
+	@wraps(f)
+	def decorated(*args, **kwargs):
+		if('USERNAME' not in session):
+			return redirect('/')
+		return f(*args, **kwargs)
+	return decorated
 
 @app.route('/', methods=['GET'])
 def index():
 	response = ''
 	if(("USERNAME" not in session) or ("SESSION_ID" not in session)):
-		response = redirect(url_for('login'))
+		response = redirect(url_for('login_auth'))
 		session.clear()
 	else:
 		response = redirect(url_for('profile', username=session["USERNAME"]))
 	return response
 
+@app.route('/loginauth', methods=['GET'])
+def render_auth():
+	return render_template("auth0.html")
+
+@app.route('/loginauth', methods=['POST'])
+def login_auth():
+	return auth0.authorize_redirect(redirect_uri='http://localhost:5001/callback')
+
 @app.route('/login', methods=['GET'])
+@requires_user
 def render_login():
+	if("SESSION_ID" in session):
+		return redirect(url_for('profile', username=session["USERNAME"]))
 	error = ''
 	if('error' in request.args):
 		error = request.args['error']
-	return render_template("login.html", error=error)
+	return render_template("login.html", error=error, user=session["USERNAME"])
 
 @app.route('/login', methods=['POST'])
+@requires_user
 def login():
-	user = request.form.get('username')
+	if( request.form['btn-signin'] == "Logout"):
+		session.clear()
+		params = {'returnTo': url_for('login_auth', _external=True), 'client_id': 'c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c'}
+		return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
 	password = request.form.get('password')
-	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
+	token = {"username": session["USERNAME"], "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
 	response = requests.post("http://api:5000/login", headers=headers)	
@@ -51,7 +107,7 @@ def login():
 			msg = "token expired"
 			return redirect(url_for('render_login', error= msg)), 401
 
-		session["USERNAME"] = user
+		#session["USERNAME"] = user
 		session["SESSION_ID"] = token_decode['session_id']
 		return redirect(url_for('render_profile'))
 	message = response.json()
@@ -59,6 +115,7 @@ def login():
 	return redirect(url_for('login', error=message))
 
 @app.route('/profile', methods=['GET'])
+@requires_auth
 def render_profile():
 	if(('SESSION_ID' in session) and ("USERNAME" in session)):
 		user = session["USERNAME"]
@@ -68,24 +125,31 @@ def render_profile():
 		return redirect(url_for('login', error="Session expired"))
 
 @app.route('/profile', methods=['POST'])
+@requires_auth
 def profile():
 	if request.form['btn'] == 'Logout':
 		token = create_jwt(REQUEST_CREDENTIALS_EXPIRE)
 		if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
 			session.clear()
 			return token
+		
 		headers= {"Authorization": token}
 		response = requests.post("http://api:5000/logout", headers=headers)
 		if(response.status_code == 200):
 			session.clear()
-			return redirect(url_for('login'))
+			params = {'returnTo': url_for('login_auth', _external=True), 'client_id': 'c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c'}
+			return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
+			#return redirect(url_for('login'))
 		else:
 			session.clear()
-			return redirect(url_for('login', error="error occured"))
+			params = {'returnTo': url_for('login_auth', _external=True), 'client_id': 'c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c'}
+			return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
+			#return redirect(url_for('login', error="error occured"))
 	else:
 		return redirect(url_for('render_publications'))
 
 @app.route('/publications', methods=['GET'])
+@requires_auth
 def render_publications():
 	token = create_jwt(PUBLICATIONS_ACCESS)
 	if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
@@ -104,6 +168,7 @@ def render_publications():
 	return render_template('publications.html', publications=pubs)
 
 @app.route('/publications', methods=['POST'])
+@requires_auth
 def publications_back():
 	if(request.form['btn'] =='Back'):
 		return redirect(url_for('render_profile'))
@@ -112,10 +177,12 @@ def publications_back():
 		return redirect(url_for('render_publications_add'))
 
 @app.route('/publications/add', methods=['GET'])
+@requires_auth
 def render_publications_add():
 	return render_template('add_publication.html')
 
 @app.route('/publications/add', methods=['POST'])
+@requires_auth
 def publications_add():
 	if(request.form['btn'] == 'Save'):
 		title = request.form['title']
@@ -141,6 +208,7 @@ def publications_add():
 	return redirect(url_for('render_publications'))
 
 @app.route('/publications/<id>', methods=['GET'])
+@requires_auth
 def render_publications_id(id):
 	token = create_jwt(PUBLICATIONS_ACCESS)
 	if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
@@ -166,6 +234,7 @@ def render_publications_id(id):
 	return render_template('publication.html', publication=data, files=files)
 
 @app.route('/publications/<id>', methods=['POST'])
+@requires_auth
 def publications_id_post(id):
 	if(request.form['btn'] == 'Back'):
 		return redirect(url_for('render_publications'))
@@ -182,6 +251,7 @@ def publications_id_post(id):
 		return redirect(url_for('render_publications_id', id=id))
 
 @app.route('/publications/<id>/edit', methods=['GET'])
+@requires_auth
 def render_publication_id_edit(id):
 	token = create_jwt(PUBLICATIONS_ACCESS)
 	if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
@@ -217,6 +287,7 @@ def render_publication_id_edit(id):
 	return render_template('edit_publication.html', publication=data)
 
 @app.route('/publications/<id>/edit', methods=['POST'])
+@requires_auth
 def send_publications_id_edit(id):
 	if(request.form['btn'] == 'Save'):
 		title = request.form['title']
@@ -232,6 +303,7 @@ def send_publications_id_edit(id):
 	return redirect(url_for('render_publications_id', id=id))
 
 @app.route('/publications/<id>/delete', methods=['GET'])
+@requires_auth
 def publications_id_delete(id):
 	token = create_jwt(PUBLICATIONS_ACCESS)
 	if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
@@ -242,6 +314,7 @@ def publications_id_delete(id):
 	return redirect(url_for('render_publications'))
 
 @app.route('/publications/<pid>/files/<fid>', methods=['GET'])
+@requires_auth
 def file_download(pid, fid):
 	token = create_jwt(PUBLICATIONS_ACCESS)
 	if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
@@ -255,6 +328,7 @@ def file_download(pid, fid):
 	return resp
 	
 @app.route('/publications/<pid>/files/<fid>/delete', methods=['GET'])
+@requires_auth
 def file_delete(pid, fid):
 	token = create_jwt(PUBLICATIONS_ACCESS)
 	if(str(type(token)) == "<class 'werkzeug.wrappers.response.Response'>"):
