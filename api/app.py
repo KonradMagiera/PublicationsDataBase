@@ -9,6 +9,7 @@ from uuid import uuid4
 import jwt
 import json
 from dotenv import load_dotenv
+import time
 from flask_cors import CORS, cross_origin
 
 
@@ -20,8 +21,8 @@ if __name__ == "__main__":
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
-
 sessions = []
+users_notification = {}
 app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
@@ -152,7 +153,14 @@ except IntegrityError:
 @cross_origin()
 def event(username):
 	def event_stream():
-		yield 'data: %s\n\n' % username
+		if((username in users_notification) and (len(users_notification[username]) > 0)):
+			msg = users_notification[username][0]
+			yield 'data: %s\n\n' % msg
+		else:
+			yield 'data: \n\n'
+		time.sleep(3)
+		if(len(users_notification[username]) > 0):
+			users_notification[username].pop(0)
 	return Response(event_stream(), mimetype="text/event-stream")
 
 
@@ -181,6 +189,9 @@ def login():
 	elif(user_db.password == password):
 		session = str(uuid4())
 		sessions.append({"user": user, "session_id": session})
+		if(user not in users_notification):
+			users_notification[user] = []
+
 		resp = make_response("logged in", 200)
 		token = {"session_id": session, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 		token = jwt.encode(token, JWT_SECRET, algorithm="HS256")
@@ -200,6 +211,13 @@ def logout():
 		if((u["user"] == token_decode["username"]) and (u["session_id"] == token_decode["session_id"])):
 			sessions.remove(u)
 			break
+	user_logged_in = False
+	for u in sessions:
+		if(u["user"] == token_decode["username"]):
+			user_logged_in = True
+			break
+	if(not user_logged_in):
+		del users_notification[token_decode["username"]]
 	msg = {"message": "logged out"}
 	return jsonify(msg), 200
 
@@ -260,6 +278,10 @@ def publications_add():
 		return jsonify(msg), 401
 	else:
 		msg = {"message": "publication added", "id": id}
+		if(len(users_notification[token_decode["username"]]) == 0):
+			users_notification[token_decode["username"]].append("Publication '%s' added!" % data["title"])
+		else:
+			users_notification[token_decode["username"]][0] = "Publication '%s' added!" % data["title"]
 		return jsonify(msg), 201
 
 @app.route("/publications/<pid>", methods=["GET"])
