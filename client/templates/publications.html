@@ -1,36 +1,53 @@
 ﻿<!DOCTYPE html>
 <html lang="pl">
 
-	<head>
-		<title>Publications</title>
-		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-        <meta charset="UTF-8">
-	</head>
-	
-	<body>
-		<div class="register">
-			<h1>Publications</h1>
-            {% if publications %}
-				<ul>
-				{% for pub in publications %}
-				<li>
+<head>
+	<title>Publications</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+	<meta charset="UTF-8">
+</head>
+
+<body>
+	<script type="text/javascript">
+		var source = new EventSource('http://localhost:5000/event');
+		
+		source.onmessage = function (event) {
+			console.log("ONMSG")
+			console.log(event.data)
+		}
+		source.onopen = function (event) {
+			console.log("ONOPEN")
+			console.log(event);
+		};
+		console.log(source)
+	</script>
+
+	<div class="register">
+		<h1>Publications</h1>
+		{% if publications %}
+		<ul>
+			{% for pub in publications %}
+			<li>
 				<a href="{{ url_for('render_publications_id', id=pub['id']) }}">
 					{{ pub['id'] }}.{{ pub['title'] }}
 				</a>
-				<a href="{{ url_for('render_publication_id_edit', id=pub['id']) }}"><img  class="img-small" src="{{ url_for('static', filename='edit.jpg') }}" />
+				<a href="{{ url_for('render_publication_id_edit', id=pub['id']) }}"><img class="img-small"
+						src="{{ url_for('static', filename='edit.jpg') }}" />
 				</a>
-				<a href="{{ url_for('publications_id_delete', id=pub['id']) }}"><img class="img-small" src="{{ url_for('static', filename='trash.jpg') }}"/>
+				<a href="{{ url_for('publications_id_delete', id=pub['id']) }}"><img class="img-small"
+						src="{{ url_for('static', filename='trash.jpg') }}" />
 				</a>
-				</li>
-				{% endfor %}
-				</ul>
-			{% else %}
-			<p>No publications to display</p>
-			{% endif %}
-			<form method="post">
-				<input type="submit" name="btn" value="Add" />
-				<input type="submit" name="btn" value="Back" />
-			</form>
-		</div>
-	</body>
+			</li>
+			{% endfor %}
+		</ul>
+		{% else %}
+		<p>No publications to display</p>
+		{% endif %}
+		<form method="post">
+			<input type="submit" name="btn" value="Add" />
+			<input type="submit" name="btn" value="Back" />
+		</form>
+	</div>
+</body>
+
 </html>

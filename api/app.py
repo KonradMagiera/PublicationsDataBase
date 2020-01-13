@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, make_response, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
@@ -9,9 +9,12 @@ from uuid import uuid4
 import jwt
 import json
 from dotenv import load_dotenv
+from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
 
+if __name__ == "__main__":
+	app.run(threaded=True)
 # CONFIG
 load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -143,6 +146,16 @@ except IntegrityError:
 	db.session.rollback()
 
 #######
+
+def event_stream():
+    print("test", flush=True)
+    yield 'data: test\n'
+
+@app.route("/event")
+@cross_origin()
+def event():
+	return Response(event_stream(), mimetype="text/event-stream")
+
 
 @app.route("/login", methods=["POST"])
 def login():
