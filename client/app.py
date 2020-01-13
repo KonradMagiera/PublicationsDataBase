@@ -165,7 +165,7 @@ def render_publications():
 		data = data['publication']
 		for pub in data:
 			pubs.append({'id': pub['id'], 'title': pub['title']})
-	return render_template('publications.html', publications=pubs)
+	return render_template('publications.html', publications=pubs, username=session["USERNAME"])
 
 @app.route('/publications', methods=['POST'])
 @requires_auth

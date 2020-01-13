@@ -9,17 +9,12 @@
 
 <body>
 	<script type="text/javascript">
-		var source = new EventSource('http://localhost:5000/event');
-		
+		var user = '{{ username }}'
+		var source = new EventSource('http://localhost:5000/event/' + user, {"Access-Control-Allow-Origin": true});
+
 		source.onmessage = function (event) {
-			console.log("ONMSG")
 			console.log(event.data)
 		}
-		source.onopen = function (event) {
-			console.log("ONOPEN")
-			console.log(event);
-		};
-		console.log(source)
 	</script>
 
 	<div class="register">

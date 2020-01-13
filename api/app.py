@@ -11,6 +11,7 @@ import json
 from dotenv import load_dotenv
 from flask_cors import CORS, cross_origin
 
+
 app = Flask(__name__)
 
 if __name__ == "__main__":
@@ -147,13 +148,11 @@ except IntegrityError:
 
 #######
 
-def event_stream():
-    print("test", flush=True)
-    yield 'data: test\n'
-
-@app.route("/event")
+@app.route("/event/<username>")
 @cross_origin()
-def event():
+def event(username):
+	def event_stream():
+		yield 'data: %s\n\n' % username
 	return Response(event_stream(), mimetype="text/event-stream")
 
 
