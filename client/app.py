@@ -69,7 +69,7 @@ def requires_user(f):
 def index():
 	response = ''
 	if(("USERNAME" not in session) or ("SESSION_ID" not in session)):
-		response = redirect(url_for('login_auth'))
+		response = redirect(url_for('render_auth'))
 		session.clear()
 	else:
 		response = redirect(url_for('profile', username=session["USERNAME"]))
