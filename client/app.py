@@ -16,6 +16,8 @@ load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
+API_URL = os.getenv("API_URL")
+
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 API_BASE_URL = os.getenv("API_BASE_URL")
@@ -46,7 +48,6 @@ def callback_handling():
 	resp = auth0.get('userinfo')
 	userinfo = resp.json()
 	session["USERNAME"] = userinfo['name']
-	#session["SESSION_ID"] = "tmp"
 	return redirect(url_for('login'))
 
 def requires_auth(f):
@@ -98,13 +99,13 @@ def render_login():
 def login():
 	if( request.form['btn-signin'] == "Logout"):
 		session.clear()
-		params = {'returnTo': url_for('login_auth', _external=True), 'client_id': 'c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c'}
+		params = {'returnTo': url_for('login_auth', _external=True), 'client_id': CLIENT_ID}
 		return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
 	password = request.form.get('password')
 	token = {"username": session["USERNAME"], "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
-	response = requests.post("http://api:5000/login", headers=headers)	
+	response = requests.post(API_URL + "/login", headers=headers)	
 	if(response.status_code == 200):
 		token_decode = response.headers.get('Authorization')
 		try:	
@@ -113,7 +114,6 @@ def login():
 			msg = "token expired"
 			return redirect(url_for('render_login', error= msg)), 401
 
-		#session["USERNAME"] = user
 		session["SESSION_ID"] = token_decode['session_id']
 		return redirect(url_for('render_profile'))
 	message = response.json()
@@ -140,17 +140,15 @@ def profile():
 			return token
 		
 		headers= {"Authorization": token}
-		response = requests.post("http://api:5000/logout", headers=headers)
+		response = requests.post(API_URL + "/logout", headers=headers)
 		if(response.status_code == 200):
 			session.clear()
-			params = {'returnTo': url_for('login_auth', _external=True), 'client_id': 'c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c'}
+			params = {'returnTo': url_for('login_auth', _external=True), 'client_id': CLIENT_ID}
 			return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
-			#return redirect(url_for('login'))
 		else:
 			session.clear()
-			params = {'returnTo': url_for('login_auth', _external=True), 'client_id': 'c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c'}
+			params = {'returnTo': url_for('login_auth', _external=True), 'client_id': CLIENT_ID}
 			return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
-			#return redirect(url_for('login', error="error occured"))
 	else:
 		return redirect(url_for('render_publications'))
 
@@ -162,7 +160,7 @@ def render_publications():
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	response = requests.get("http://api:5000/publications", headers=headers)
+	response = requests.get(API_URL + "/publications", headers=headers)
 	pubs = list()
 	data = response.json()
 	if(("publication" not in data) or (response.status_code != 200)):
@@ -203,13 +201,13 @@ def publications_add():
 			session.clear()
 			return token
 		headers= {"Authorization": token}
-		response = requests.post('http://api:5000/publications', json={"title": title, "author": author, "publisher": publisher, "date": date}, headers=headers)
+		response = requests.post(API_URL + '/publications', json={"title": title, "author": author, "publisher": publisher, "date": date}, headers=headers)
 		if(file.filename != ''):
 			data = response.json()
 			if('id' in data):
 				id = data['id']
 				headers = {"Authorization": token}
-				response = requests.post("http://api:5000/publications/" + str(id) + "/files", files=files, headers=headers)
+				response = requests.post(API_URL + "/publications/" + str(id) + "/files", files=files, headers=headers)
 
 	return redirect(url_for('render_publications'))
 
@@ -221,7 +219,7 @@ def render_publications_id(id):
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	response = requests.get('http://api:5000/publications/' + id, headers=headers)
+	response = requests.get(API_URL + '/publications/' + id, headers=headers)
 	data = response.json()
 	if((response.status_code != 200) or ("publication" not in data)):
 		return redirect(url_for("render_publications"))
@@ -232,7 +230,7 @@ def render_publications_id(id):
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	response = requests.get('http://api:5000/publications/'+ id + "/files", headers=headers)
+	response = requests.get(API_URL + '/publications/'+ id + "/files", headers=headers)
 	files = response.json()
 	files = files['publication']
 	if(len(files) == 0):
@@ -253,7 +251,7 @@ def publications_id_post(id):
 					session.clear()
 					return token
 				headers= {"Authorization": token}
-				requests.post('http://api:5000/publications/' + str(id) + "/files", files=files, headers=headers)
+				requests.post(API_URL + '/publications/' + str(id) + "/files", files=files, headers=headers)
 		return redirect(url_for('render_publications_id', id=id))
 
 @app.route('/publications/<id>/edit', methods=['GET'])
@@ -264,7 +262,7 @@ def render_publication_id_edit(id):
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	response = requests.get('http://api:5000/publications/' + id, headers=headers)
+	response = requests.get(API_URL + '/publications/' + id, headers=headers)
 	data = response.json()
 	if((response.status_code != 200) or ("publication" not in data)):
 		return redirect(url_for("render_publications_id", id=id))
@@ -307,7 +305,7 @@ def send_publications_id_edit(id):
 			session.clear()
 			return token
 		headers= {"Authorization": token}
-		requests.put('http://api:5000/publications/' + id, json={"id": id, "title": title, "author": author, "publisher": publisher, "date":date}, headers=headers)
+		requests.put(API_URL + '/publications/' + id, json={"id": id, "title": title, "author": author, "publisher": publisher, "date":date}, headers=headers)
 	return redirect(url_for('render_publications_id', id=id))
 
 @app.route('/publications/<id>/delete', methods=['GET'])
@@ -318,7 +316,7 @@ def publications_id_delete(id):
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	requests.delete('http://api:5000/publications/' + id, headers=headers)
+	requests.delete(API_URL + '/publications/' + id, headers=headers)
 	return redirect(url_for('render_publications'))
 
 @app.route('/publications/<pid>/files/<fid>', methods=['GET'])
@@ -329,7 +327,7 @@ def file_download(pid, fid):
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	response = requests.get('http://api:5000/publications/' + pid + "/files/" + fid, headers=headers)
+	response = requests.get(API_URL + '/publications/' + pid + "/files/" + fid, headers=headers)
 	if(response.status_code != 200):
 		return redirect(url_for('render_publications_id', id=pid))
 	resp = Response(response=response.content, content_type='application/pdf')
@@ -343,7 +341,7 @@ def file_delete(pid, fid):
 		session.clear()
 		return token
 	headers= {"Authorization": token}
-	requests.delete('http://api:5000/publications/' + pid + "/files/" + fid, headers=headers)
+	requests.delete(API_URL + '/publications/' + pid + "/files/" + fid, headers=headers)
 	return redirect(url_for('render_publications_id', id=pid))
 
 def create_jwt(expire_time):
