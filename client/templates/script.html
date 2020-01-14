@@ -1,0 +1,11 @@
+{% block body %}
+<h4 id="notification"></h4>
+<script type="text/javascript">
+		var user = '{{ username }}'
+		var source = new EventSource('http://localhost:5000/event/' + user, {"Access-Control-Allow-Origin": true});
+		const notificationElement = document.getElementById("notification")
+		source.onmessage = function (event) {
+			notificationElement.innerHTML = event.data
+		}
+	</script>
+{% endblock %}

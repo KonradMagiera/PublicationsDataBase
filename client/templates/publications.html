@@ -10,7 +10,7 @@
 <body>
 	<div class="register">
 		<h1>Publications</h1>
-		<h4 id="notification"></h4>
+		{% include 'script.html' %}
 		{% if publications %}
 		<ul>
 			{% for pub in publications %}
@@ -35,15 +35,6 @@
 			<input type="submit" name="btn" value="Back" />
 		</form>
 	</div>
-
-	<script type="text/javascript">
-		var user = '{{ username }}'
-		var source = new EventSource('http://localhost:5000/event/' + user, {"Access-Control-Allow-Origin": true});
-		const notificationElement = document.getElementById("notification")
-		source.onmessage = function (event) {
-			notificationElement.innerHTML = event.data
-		}
-	</script>
 </body>
 
 </html>
