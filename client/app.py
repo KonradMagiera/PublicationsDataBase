@@ -179,7 +179,7 @@ def publications_back():
 @app.route('/publications/add', methods=['GET'])
 @requires_auth
 def render_publications_add():
-	return render_template('add_publication.html')
+	return render_template('add_publication.html', username=session["USERNAME"])
 
 @app.route('/publications/add', methods=['POST'])
 @requires_auth
@@ -231,7 +231,7 @@ def render_publications_id(id):
 	files = files['publication']
 	if(len(files) == 0):
 		files = None
-	return render_template('publication.html', publication=data, files=files)
+	return render_template('publication.html', publication=data, files=files, username=session["USERNAME"])
 
 @app.route('/publications/<id>', methods=['POST'])
 @requires_auth
@@ -282,9 +282,11 @@ def render_publication_id_edit(id):
         'Dec' : 12}
 	tmp_mon = date[3:6]
 	month = month[tmp_mon]
+	if(month < 10):
+		month = "0" + str(month)
 	year = date[7:11]
 	data['pub_date'] = str(year) + '-' + str(month) + '-' + day
-	return render_template('edit_publication.html', publication=data)
+	return render_template('edit_publication.html', publication=data, username=session["USERNAME"])
 
 @app.route('/publications/<id>/edit', methods=['POST'])
 @requires_auth

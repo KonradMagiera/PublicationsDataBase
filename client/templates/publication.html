@@ -9,6 +9,7 @@
 	
 	<body>
 		<div class="register">
+			{% include 'script.html' %}
 			{% if publication %}
 			<h1>Publication id: {{ publication['id'] }}</h1>
 			<a href="{{ url_for('render_publication_id_edit', id=publication['id']) }}"><img  class="img-small" src="{{ url_for('static', filename='edit.jpg') }}" />

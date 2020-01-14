@@ -153,14 +153,14 @@ except IntegrityError:
 @cross_origin()
 def event(username):
 	def event_stream():
-		if((username in users_notification) and (len(users_notification[username]) > 0)):
-			msg = users_notification[username][0]
+		if(username in users_notification):
+			msg = users_notification[username]
 			yield 'data: %s\n\n' % msg
 		else:
 			yield 'data: \n\n'
 		time.sleep(3)
-		if(len(users_notification[username]) > 0):
-			users_notification[username].pop(0)
+		if(username in users_notification):
+			users_notification[username] = ""
 	return Response(event_stream(), mimetype="text/event-stream")
 
 
@@ -190,7 +190,7 @@ def login():
 		session = str(uuid4())
 		sessions.append({"user": user, "session_id": session})
 		if(user not in users_notification):
-			users_notification[user] = []
+			users_notification[user] = ""
 
 		resp = make_response("logged in", 200)
 		token = {"session_id": session, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
@@ -278,10 +278,7 @@ def publications_add():
 		return jsonify(msg), 401
 	else:
 		msg = {"message": "publication added", "id": id}
-		if(len(users_notification[token_decode["username"]]) == 0):
-			users_notification[token_decode["username"]].append("Publication '%s' added!" % data["title"])
-		else:
-			users_notification[token_decode["username"]][0] = "Publication '%s' added!" % data["title"]
+		users_notification[token_decode["username"]] = "Publication '%s' added!" % data["title"]
 		return jsonify(msg), 201
 
 @app.route("/publications/<pid>", methods=["GET"])
