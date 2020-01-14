@@ -16,17 +16,23 @@ load_dotenv(verbose=True)
 JWT_SECRET = os.getenv("JWT_SECRET")
 REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+API_BASE_URL = os.getenv("API_BASE_URL")
+ACCESS_TOKEN_URL = os.getenv("ACCESS_TOKEN_URL")
+AUTHORIZE_URL = os.getenv("AUTHORIZE_URL")
+
 
 app.config["SECRET_KEY"] = secrets.token_urlsafe(16)
 oauth = OAuth(app)
 
 auth0 = oauth.register(
     'auth0',
-    client_id='c2PmfJVzeXvzCYNfd0XFSyW4PD8SXP2c',
-    client_secret='WHw-238VITTx5h9ssgq-Z6pddZzTdECEfH2hYU1-kmlfmW74cD3aZlTmq5jO3UkX',
-    api_base_url='https://uni-web-p4.eu.auth0.com',
-    access_token_url='https://uni-web-p4.eu.auth0.com/oauth/token',
-    authorize_url='https://uni-web-p4.eu.auth0.com/authorize',
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    api_base_url=API_BASE_URL,
+    access_token_url=ACCESS_TOKEN_URL,
+    authorize_url=AUTHORIZE_URL,
     client_kwargs={
         'scope': 'openid profile email',
     },
