@@ -1,0 +1,27 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+
+	<head>
+		<title>Add publication</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <meta charset="UTF-8">
+	</head>
+	
+	<body>
+		<div class="register">
+			{% include 'script.html' %}
+			<form method="post" enctype="multipart/form-data">
+				<label>Title</label><input type="text" name="title" placeholder="title" required/>
+				<label>Author</label><input type="text" name="author" placeholder="author" required/>
+				<label>Publisher</label><input type="text" name="publisher" placeholder="publisher" required/>
+				<label>Date</label><input name="date" type="date" />
+				<label>File</label><input type="file" name="file" accept="application/pdf" />
+				<input type="submit" name="btn" value="Save" />
+			</form>
+
+			<form method="post">
+			<input type="submit" name="btn" value="Cancel" />
+			</form>
+		</div>
+	</body>
+</html>

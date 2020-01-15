@@ -1,0 +1,7 @@
+flask
+python-dotenv
+flask-SQLAlchemy==2.4.1
+pyjwt==1.7.1
+requests==2.22.0
+pycrypto
+flask-cors

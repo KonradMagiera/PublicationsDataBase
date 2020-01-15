@@ -1,0 +1,25 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+
+	<head>
+		<title>Edit publications</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <meta charset="UTF-8">
+	</head>
+	
+	<body>
+		<div class="register">
+			{% include 'script.html' %}
+			<form method="post">
+				{% if publication %}
+				<label>Title</label><input type="text" name="title" placeholder="title" value="{{ publication['title'] }}" required/>
+				<label>Author</label><input type="text" name="author" placeholder="author" value="{{ publication['author'] }}" required/>
+				<label>Publisher</label><input type="text" name="publisher" placeholder="publisher" value="{{ publication['publisher'] }}" required/>
+				<label>Date</label><input name="date" value="{{ publication['pub_date'] }}" type="date" />
+				{% endif %}
+				<input type="submit" name="btn" value="Save" />
+				<input type="submit" name="btn" value="Cancel" />
+			</form>
+		</div>
+	</body>
+</html>
