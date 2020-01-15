@@ -58,7 +58,7 @@ def login():
 	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
-	response = requests.post(API_URL + "/login", headers=headers)	
+	response = requests.post(API_URL + "/login", headers=headers)
 	if(response.status_code == 200):
 		token_decode = response.headers.get('Authorization')
 		try:	
@@ -72,6 +72,27 @@ def login():
 	message = response.json()
 	message = message['message']
 	return redirect(url_for('login', error=message))
+
+@app.route("/register", methods=['GET'])
+def render_register():
+	error = ""
+	if('error' in request.args):
+		error = request.args['error']
+	return render_template("register.html", error=error)
+
+@app.route("/register", methods=["POST"])
+def register():
+	user = request.form.get('username')
+	password = request.form.get('password')
+	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
+	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
+	headers= {"Authorization": token}
+	response = requests.post(API_URL + "/register", headers=headers)
+	data = response.json()
+	data = data["message"]
+	if(data != "User created"):
+		return redirect(url_for("render_register", error=data))
+	return redirect(url_for("render_login"))
 
 @app.route('/profile', methods=['GET'])
 @requires_auth

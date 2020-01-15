@@ -221,6 +221,39 @@ def logout():
 	msg = {"message": "logged out"}
 	return jsonify(msg), 200
 
+
+@app.route("/register", methods=["POST"])
+def register():
+	token_decode = request.headers.get("Authorization")
+	try:	
+		token_decode = jwt.decode(token_decode, JWT_SECRET, algorithm="HS256")
+	except jwt.ExpiredSignatureError:
+		msg = {"message": "token expired"}
+		return jsonify(msg), 401
+	username = token_decode["username"]
+	password = token_decode["password"]
+	user_db = User.query.filter_by(user=username).first()
+	if(user_db != None):
+		msg = {"message": "User already exists"}
+		return jsonify(msg), 401
+	try:
+		password = str.encode(password)
+		password = SHA256.new(password)
+		password = password.hexdigest()
+		new_user = User(user=username, password=password)
+		db.session.add(new_user)
+		db.session.commit()
+		msg = {"message": "User created"}
+		return jsonify(msg), 201
+	except IntegrityError:
+		db.session.rollback()
+		msg = {"message": "Unexpected error"}
+		return jsonify(msg), 401
+
+@app.route("/change_password", methods=["PUT"])
+def change_password():
+	return "change", 200
+
 @app.route("/", methods=["GET"])
 @app.route("/publications", methods=["GET"])
 def publications():
