@@ -11,6 +11,7 @@ import json
 from dotenv import load_dotenv
 import time
 from flask_cors import CORS, cross_origin
+import re
 
 
 app = Flask(__name__)
@@ -91,6 +92,10 @@ class User(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	user = db.Column(db.String(32), unique=True, nullable=False)
 	password = db.Column(db.String(256), unique=False, nullable=False) # SHA256
+
+	def update(self, password=None):
+		if(password):
+			self.password = password
 
 db.create_all()
 
@@ -179,9 +184,7 @@ def login():
 
 	user = token_decode["username"]
 	password = token_decode["password"]
-	password = str.encode(password)
-	password = SHA256.new(password)
-	password = password.hexdigest()
+	password = hashString(password)
 	user_db = User.query.filter_by(user=user).first()
 	if(user_db == None):
 		msg = {"message": "incorrect username or password"}
@@ -232,14 +235,16 @@ def register():
 		return jsonify(msg), 401
 	username = token_decode["username"]
 	password = token_decode["password"]
+	pattern = re.compile("""(?=^.{8,}$)(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&amp;*()_+}{&quot;:;'?&gt;.&lt;,])(?!.*\s).*$""")
+	if(pattern.match(password) == None):
+		msg = {"message": "Password is too weak"}
+		return jsonify(msg), 401
 	user_db = User.query.filter_by(user=username).first()
 	if(user_db != None):
 		msg = {"message": "User already exists"}
 		return jsonify(msg), 401
 	try:
-		password = str.encode(password)
-		password = SHA256.new(password)
-		password = password.hexdigest()
+		password = hashString(password)
 		new_user = User(user=username, password=password)
 		db.session.add(new_user)
 		db.session.commit()
@@ -525,3 +530,8 @@ def validate_token(token):
 			return token_decode, 200
 	msg = {"message": "validation error"}
 	return jsonify(msg), 401
+
+def hashString(password):
+		hash_password = str.encode(password)
+		hash_password = SHA256.new(hash_password)
+		return hash_password.hexdigest()

@@ -19,8 +19,15 @@
 					<label class="describe" for="password">Password:</label>
 					<input type="password" name="password" required/>
 				</div>
+				<div class="table">
+					<label class="describe" for="repeat_password">Password:</label>
+					<input type="password" name="repeat_password" required/>
+				</div>
 				<label class="err">{{ error }}</label>
-				<input type="submit" name="btn-signin" value="Sign up"/>
+				<input type="submit" name="btn" value="Sign up"/>
+			</form>
+			<form method="post">
+				<input type="submit" name="btn" value="Login page"/>
 			</form>
 		</div>
 	</body>

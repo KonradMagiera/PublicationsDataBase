@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from functools import wraps
 from authlib.integrations.flask_client import OAuth
 from six.moves.urllib.parse import urlencode
+import re
 
 app = Flask(__name__)
 
@@ -35,12 +36,22 @@ def requires_auth(f):
 def index():
 	response = ''
 	if(("USERNAME" not in session) or ("SESSION_ID" not in session)):
-		response = redirect(url_for('login'))
+		response = redirect(url_for('render_main'))
 		session.clear()
 	else:
 		response = redirect(url_for('profile', username=session["USERNAME"]))
 	return response
 
+
+@app.route("/main", methods=['GET'])
+def render_main():
+	return render_template("main.html")
+
+@app.route("/main", methods=['POST'])
+def main():
+	if request.form['btn'] == 'Sign in':
+		return redirect(url_for("render_login"))
+	return redirect(url_for("render_register"))
 
 @app.route('/login', methods=['GET'])
 def render_login():
@@ -53,6 +64,8 @@ def render_login():
 
 @app.route('/login', methods=['POST'])
 def login():
+	if request.form['btn'] == 'Register page':
+		return redirect(url_for("render_register"))
 	user = request.form.get('username')
 	password = request.form.get('password')
 	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
@@ -75,6 +88,8 @@ def login():
 
 @app.route("/register", methods=['GET'])
 def render_register():
+	if(('SESSION_ID' in session) and ("USERNAME" in session)):
+		return render_template("profile.html", username=session["USERNAME"])
 	error = ""
 	if('error' in request.args):
 		error = request.args['error']
@@ -82,15 +97,26 @@ def render_register():
 
 @app.route("/register", methods=["POST"])
 def register():
+	if request.form['btn'] == 'Login page':
+		return redirect(url_for("render_login"))
+	
 	user = request.form.get('username')
 	password = request.form.get('password')
+
+	pattern = re.compile("""(?=^.{8,}$)(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&amp;*()_+}{&quot;:;'?&gt;.&lt;,])(?!.*\s).*$""")
+	if(pattern.match(password) == None):
+		return redirect(url_for("render_register", error="Password is too weak"))
+	repeat_password = request.form.get('repeat_password')
+	if(password != repeat_password):
+		return redirect(url_for("render_register", error="Passwords doesn't match"))
+
 	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm='HS256')
 	headers= {"Authorization": token}
 	response = requests.post(API_URL + "/register", headers=headers)
-	data = response.json()
-	data = data["message"]
-	if(data != "User created"):
+	if(response.status_code != 201):
+		data = response.json()
+		data = data["message"]
 		return redirect(url_for("render_register", error=data))
 	return redirect(url_for("render_login"))
 
