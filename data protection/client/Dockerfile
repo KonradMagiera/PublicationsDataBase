@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 COPY . .
 ENV FLASK_APP app.py
 ENV FLASK_RUN_HOST 0.0.0.0
-CMD ["flask", "run"]
+CMD ["sh", "-c", "flask run --cert=cert.pem --key=key.pem"]

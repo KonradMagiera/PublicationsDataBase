@@ -9,6 +9,7 @@ from functools import wraps
 from authlib.integrations.flask_client import OAuth
 from six.moves.urllib.parse import urlencode
 import re
+from flask_talisman import Talisman
 
 app = Flask(__name__)
 
@@ -18,9 +19,8 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 REQUEST_CREDENTIALS_EXPIRE = int(os.getenv("REQUEST_CREDENTIALS_EXPIRE"))
 PUBLICATIONS_ACCESS = int(os.getenv("PUBLICATIONS_ACCESS"))
 API_URL = os.getenv("API_URL")
-
 app.config["SECRET_KEY"] = secrets.token_urlsafe(16)
-
+Talisman(app)
 
 #######
 
@@ -348,3 +348,7 @@ def create_jwt(expire_time):
 		return token
 	else:
 		return redirect(url_for('login', error="Session expired"))
+
+
+if __name__ == '__main__':  
+	app.run()
