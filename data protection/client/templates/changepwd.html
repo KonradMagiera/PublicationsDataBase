@@ -1,0 +1,34 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+
+	<head>
+		<title>Register form</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <meta charset="UTF-8">
+	</head>
+	
+	<body>
+		<div class="register">
+			<h1>Change password</h1>
+            <form method="post">
+				<div class="table">
+					<label class="describe" for="old_password">Old password:</label>
+					<input type="password" name="old_password" placeholder="Old password" required/>
+				</div>
+				<div class="table">
+					<label class="describe" for="password">New password:</label>
+					<input type="password" name="password" placeholder="New password" required/>
+				</div>
+				<div class="table">
+					<label class="describe" for="repeat_password">Repeat new password:</label>
+					<input type="password" name="repeat_password" placeholder="New password" required/>
+				</div>
+				<label class="err">{{ error }}</label>
+				<input type="submit" name="btn" value="Change password"/>
+			</form>
+			<form method="post">
+				<input type="submit" name="btn" value="Cancel"/>
+			</form>
+		</div>
+	</body>
+</html>

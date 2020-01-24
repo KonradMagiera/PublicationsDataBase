@@ -13,15 +13,15 @@
             <form method="post">
 				<div class="table">
 					<label class="describe">Username:</label>
-					<input type="text" name="username" required/>
+					<input type="text" name="username" value="{{ username }}" placeholder="username" required/>
 				</div>
 				<div class="table">
 					<label class="describe" for="password">Password:</label>
-					<input type="password" name="password" required/>
+					<input type="password" name="password" placeholder="Password" required/>
 				</div>
 				<div class="table">
-					<label class="describe" for="repeat_password">Password:</label>
-					<input type="password" name="repeat_password" required/>
+					<label class="describe" for="repeat_password">Repeat password:</label>
+					<input type="password" name="repeat_password" placeholder="Password" required/>
 				</div>
 				<label class="err">{{ error }}</label>
 				<input type="submit" name="btn" value="Sign up"/>

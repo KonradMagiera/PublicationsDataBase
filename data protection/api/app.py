@@ -235,8 +235,7 @@ def register():
 		return jsonify(msg), 401
 	username = token_decode["username"]
 	password = token_decode["password"]
-	pattern = re.compile("""(?=^.{8,}$)(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&amp;*()_+}{&quot;:;'?&gt;.&lt;,])(?!.*\s).*$""")
-	if(pattern.match(password) == None):
+	if(not verify_password(password)):
 		msg = {"message": "Password is too weak"}
 		return jsonify(msg), 401
 	user_db = User.query.filter_by(user=username).first()
@@ -257,7 +256,33 @@ def register():
 
 @app.route("/change_password", methods=["PUT"])
 def change_password():
-	return "change", 200
+	token_decode = request.headers.get("Authorization")
+	token_decode, status = validate_token(token_decode)
+	if(status != 200):
+		return token_decode, status
+	print(token_decode, flush=True)
+	user_db = User.query.filter_by(user=token_decode["username"]).first()
+	if(user_db == None):
+		msg = {"message": "incorrect username or password"}
+		return jsonify(msg), 401
+	else:
+		password = hashString(token_decode["old_password"])
+		if(user_db.password != password):
+			msg = {"message": "incorrect username or password"}
+			return jsonify(msg), 401
+		if(not verify_password(token_decode["new_password"])):
+			msg = {"message": "Password is too weak"}
+			return jsonify(msg), 401
+		new_password = hashString(token_decode["new_password"])
+		user_db.update(password=new_password)
+		try:
+			db.session.commit()
+			msg = {"message": "password changed"}
+			return jsonify(msg), 200
+		except IntegrityError:
+			db.session.rollback()
+			msg = {"message": "database error"}
+			return jsonify(msg), 401
 
 @app.route("/", methods=["GET"])
 @app.route("/publications", methods=["GET"])
@@ -532,6 +557,13 @@ def validate_token(token):
 	return jsonify(msg), 401
 
 def hashString(password):
-		hash_password = str.encode(password)
-		hash_password = SHA256.new(hash_password)
-		return hash_password.hexdigest()
+	hash_password = str.encode(password)
+	hash_password = SHA256.new(hash_password)
+	return hash_password.hexdigest()
+
+def verify_password(password):
+	pattern = re.compile("""(?=^.{8,20}$)(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&amp;*()_+}{&quot;:;"?&gt;.&lt;,])(?!.*\s).*$""")
+	if(pattern.match(password) == None):
+		return False
+	return True
+	
