@@ -6,10 +6,9 @@ import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from functools import wraps
-from authlib.integrations.flask_client import OAuth
-from six.moves.urllib.parse import urlencode
 import re
 from flask_talisman import Talisman
+from Crypto.Hash import SHA256
 
 app = Flask(__name__)
 
@@ -69,6 +68,8 @@ def login():
 		return redirect(url_for("render_register"))
 	user = request.form.get("username")
 	password = request.form.get("password")
+
+	password = hashString(password, 20)
 	token = {"username": user, "password": password, "exp": datetime.now() + timedelta(seconds=REQUEST_CREDENTIALS_EXPIRE)}
 	token = jwt.encode(token, JWT_SECRET, algorithm="HS256")
 	headers= {"Authorization": token}
@@ -179,7 +180,6 @@ def changepwd():
 	token = jwt.encode(token, JWT_SECRET, algorithm="HS256")
 	headers= {"Authorization": token}
 	response = requests.put(API_URL + "/change_password", headers=headers)
-	print(response.status_code, flush=True)
 	if(response.status_code == 200):
 		return redirect(url_for("render_profile"))
 	data = response.json()
@@ -390,6 +390,14 @@ def verify_password(password):
 	if(pattern.match(password) == None):
 		return False
 	return True
+
+def hashString(password, num):
+	new_password = password
+	for i in range(0, num):
+		new_password = str.encode(new_password)
+		new_password = SHA256.new(new_password)
+		new_password = new_password.hexdigest()
+	return new_password
 
 if __name__ == "__main__":  
 	app.run()

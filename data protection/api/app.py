@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 import time
 from flask_cors import CORS, cross_origin
 import re
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 app = Flask(__name__)
@@ -28,6 +30,11 @@ app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite3"
 db = SQLAlchemy(app)
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["200 per minute", "10000 per day"]
+)
 
 # DATABASE MODEL
 class Publication(db.Model):
@@ -103,14 +110,14 @@ db.create_all()
 
 # USERS
 try:
-	user = User(user="admin", password="8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918")
+	user = User(user="admin", password="b52a4d33ca7c889a9b28b943689cd6f736cbd7aecd914fa05d289cd3bf41c870")
 	db.session.add(user)
 	db.session.commit()
 except IntegrityError:
 	db.session.rollback()
 
 try:
-	user = User(user="magierak", password="430afa184d6e53861cecbac329560e11800b0bbbe48be6aa3a3e206b78ace691")
+	user = User(user="magierak", password="255fb40109088f421f619be50a7aa601db89df34a662e9695d123bba8f70c401")
 	db.session.add(user)
 	db.session.commit()
 except IntegrityError:
@@ -184,7 +191,7 @@ def login():
 
 	user = token_decode["username"]
 	password = token_decode["password"]
-	password = hashString(password)
+	password = hashString(password, 100)
 	user_db = User.query.filter_by(user=user).first()
 	if(user_db == None):
 		msg = {"message": "incorrect username or password"}
@@ -243,7 +250,7 @@ def register():
 		msg = {"message": "User already exists"}
 		return jsonify(msg), 401
 	try:
-		password = hashString(password)
+		password = hashString(password, 120)
 		new_user = User(user=username, password=password)
 		db.session.add(new_user)
 		db.session.commit()
@@ -260,20 +267,19 @@ def change_password():
 	token_decode, status = validate_token(token_decode)
 	if(status != 200):
 		return token_decode, status
-	print(token_decode, flush=True)
 	user_db = User.query.filter_by(user=token_decode["username"]).first()
 	if(user_db == None):
 		msg = {"message": "incorrect username or password"}
 		return jsonify(msg), 401
 	else:
-		password = hashString(token_decode["old_password"])
+		password = hashString(token_decode["old_password"], 120)
 		if(user_db.password != password):
 			msg = {"message": "incorrect username or password"}
 			return jsonify(msg), 401
 		if(not verify_password(token_decode["new_password"])):
 			msg = {"message": "Password is too weak"}
 			return jsonify(msg), 401
-		new_password = hashString(token_decode["new_password"])
+		new_password = hashString(token_decode["new_password"], 120)
 		user_db.update(password=new_password)
 		try:
 			db.session.commit()
@@ -556,13 +562,17 @@ def validate_token(token):
 	msg = {"message": "validation error"}
 	return jsonify(msg), 401
 
-def hashString(password):
-	hash_password = str.encode(password)
-	hash_password = SHA256.new(hash_password)
-	return hash_password.hexdigest()
+def hashString(password, num):
+	new_password = password
+	for i in range(0, num):
+		new_password = str.encode(new_password)
+		new_password = SHA256.new(new_password)
+		new_password = new_password.hexdigest()
+	return new_password
 
 def verify_password(password):
 	pattern = re.compile("""(?=^.{8,20}$)(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&amp;*()_+}{&quot;:;"?&gt;.&lt;,])(?!.*\s).*$""")
+	print(password, flush=True)
 	if(pattern.match(password) == None):
 		return False
 	return True
